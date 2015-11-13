@@ -3,16 +3,15 @@
 ---
 Hanfeng Chen
 
-The details of the development note can be found in the folder `ws` [link](ws/readme.md)
+The details of the node for project development can be found in the folder `ws` ([Click here](ws/readme.md)).
 
 ## Time lines
 
-- ** Project proposal ** on November 4, 2015
-- ** First report for update ** on November 13, 2015
-- ** Second report for update ** on xxx
-- ** Next update... **
+- **Project proposal** on November 4, 2015
+- **First report for update** on November 13, 2015
+- **Next update...**
 
-## To-do Lists
+## To-do lists
 
 1. Get the list of functions
 2. Shape analysis
@@ -29,13 +28,15 @@ The details of the development note can be found in the folder `ws` [link](ws/re
 8. Benchmark tests
 9. Write up reports
 
-## File Structure
+## Project folder structure
 
-`./`
-
-- ws (main workspace)
-  * code
+```
++ ws (main workspace)
+  + code
     - demo files
     - demo args
-  * Java files: autoVector.java (main) and so on
+  + Java files
+    - autoVector.java (main)
+    - other Java files
 - README.md
+```
