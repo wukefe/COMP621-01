@@ -27,6 +27,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
    */
   // map Assignment to string to look up conditions
   Map<AssignStmt, String> OutFlowCond;
+  int DepthFor = 0;
   
   // (6)
   @Override
@@ -64,6 +65,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   
   @Override
   public void caseScript(Script node) {
+	  currentInSet = newInitialFlow();
+	  currentOutSet= new HashSet<>(currentInSet);
 	  caseASTNode(node);
   }
   
@@ -72,14 +75,15 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   public void caseForStmt(ForStmt node){
 	  // clean flow before going to next loop?
 	  OutFlowCond = new HashMap<>();
-	  currentInSet = newInitialFlow();
-	  currentOutSet= new HashSet<>(currentInSet);
+	  //currentInSet = newInitialFlow();
+	  //currentOutSet= new HashSet<>(currentInSet);
 	  
 	  processForStmt(node);
 	  //Print("size = " + outFlowSets.size());
   }
   
   private void processForStmt(ForStmt node){
+	  DepthFor++;
 	  ast.List<Stmt> x = node.getStmts();
 	  String iter =  node.getAssignStmt().getLHS().getVarName(); // iter variable
 	  Print("iter = " + iter);
@@ -91,6 +95,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  else if(a instanceof IfStmt){
 			  processIfStmt((IfStmt)a);
 		  }
+//		  else caseASTNode(node);
 		  else if(a instanceof ForStmt){
 			  processForStmt((ForStmt)a); // goto next for loop
 		  }
@@ -98,11 +103,20 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  // test(iter, outFlowSets)
 	  PrintA(outFlowSets); //recursive solution
 	  PrintB(OutFlowCond);
+	  DepthFor--;
+  }
+  
+  @Override
+  public void caseIfStmt(IfStmt node){
+	  if(DepthFor > 0)
+		  processIfStmt(node);
+	  caseASTNode(node);
   }
   
   private void processIfStmt(IfStmt node){
 	  Print("entering  processIfStmt: " + node.getNumIfBlock());
 	  ast.List<Expr> CurrentCondList = new ast.List<>();
+	  outFlowSets.clear(); // initial
 	  for(IfBlock ifb : node.getIfBlocks()){
 		  Expr CurrentCond = ifb.getCondition(); // get current condition
 		  CurrentCondList.add(CurrentCond);
@@ -179,6 +193,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   private void addAssignment(AssignStmt node, String cond){
 	  inFlowSets.put(node, copy(currentInSet));
 	  
+	  Print("current "+ cond + " = " + currentInSet.size());
 	  // out = in
 	  currentOutSet = copy(currentInSet);
 	  // out = out + gen
@@ -199,7 +214,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   private Set<AssignStmt> kill(AssignStmt node) {
 	  Set<AssignStmt> r = new HashSet<>();
 	  Set<String> names = node.getLValues(); //y(i) --> y
-	  Print("current = " + currentInSet.size());
+	  //Print("current = " + currentInSet.size());
 	  for(AssignStmt var : currentInSet){
 		  Set<String> nvar = getAsssignmentNames(var);
 		  if(!nvar.containsAll(names)){
