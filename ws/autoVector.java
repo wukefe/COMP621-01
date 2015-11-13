@@ -18,12 +18,11 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		autoVector analysis = new autoVector(ast);
 //		analysis.analyze();
 		// get function list
-		methodVector mv = new methodVector();
-		ast.analyze(mv);
-		System.out.println("#################");
-		analysis.methodList = new ArrayList<String>(mv.getMethodList());
-		shapeVector shapeanalysis = new shapeVector(ast);
+//		methodVector mv = new methodVector();
+//		ast.analyze(mv);
+		shapeVector shapeanalysis = new shapeVector(ast, args[0]);
 		shapeanalysis.analyze();
+		analysis.methodList = new ArrayList<String>(shapeanalysis.getMethodList());
 //		shapeanalysis.printFinal();
 		return ;
 		// ast.analyze(new autoVector());

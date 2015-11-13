@@ -1,9 +1,15 @@
 import java.awt.List;
+import java.io.BufferedReader;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
+
+import javax.swing.text.AbstractDocument.BranchElement;
 
 import analysis.ForwardAnalysis;
 import ast.ASTNode;
@@ -17,6 +23,7 @@ import ast.IntLiteralExpr;
 import ast.MDivExpr;
 import ast.MTimesExpr;
 import ast.MinusExpr;
+import ast.Name;
 import ast.NameExpr;
 import ast.ParameterizedExpr;
 import ast.PlusExpr;
@@ -26,6 +33,7 @@ import ast.Stmt;
 import ast.StringLiteralExpr;
 import natlab.toolkits.path.BuiltinQuery;
 import sun.launcher.resources.launcher_de;
+import natlab.tame.builtin.Builtin.Var;
 import natlab.toolkits.BuiltinSet;
 
 
@@ -41,13 +49,20 @@ import natlab.toolkits.BuiltinSet;
  */
 
 public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
-	public shapeVector(ASTNode tree){
+	public shapeVector(ASTNode tree, String name){
 		super(tree);
+		ScriptName = name; //set script name, if in script mode
+//		System.out.println("new name: " + createInputArgs(name));
+		createInput(name);
 	}
 	
 	private Set<Stmt> skip = new HashSet<>();
 	private Map<String, infoDim> shapeInfo = new HashMap<>();
 	private BuiltinQuery query = BuiltinSet.getBuiltinQuery();
+	private String ScriptName = "";
+	public Map<String, Map<String, infoDim>> allShapeInfo = new HashMap<>();
+	public ArrayList<String> methodList = new ArrayList<>();
+	private Map<String, ArrayList<infoDim>> inputList = new HashMap<>();
 
 	// (6)
 	@Override
@@ -82,15 +97,21 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 	 */
 	@Override
 	public void caseFunction(ast.Function node) {
+		String fname = node.getName().getVarName();
 		shapeInfo = new HashMap<>();
 		skip = new HashSet<>();
+		methodList.add(fname);
+		processParameter(node, inputList.get(fname));
 		caseASTNode(node);
 		printFinal();
+		allShapeInfo.put(fname, shapeInfo);
 	}
 	
 	@Override
 	public void caseScript(Script node){
 		caseASTNode(node);
+		printFinal();
+		allShapeInfo.put(ScriptName, shapeInfo);
 	}
 	
 	@Override
@@ -117,6 +138,7 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 	/*
 	 * Iteration may be empty after loop []
 	 *   for example, 3:2  --> empty
+	 *   (deprecated with decideDimRange)
 	 */
 	@Override
 	public void caseForStmt(ForStmt node){
@@ -124,7 +146,7 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		caseASTNode(node);
 		infoDim old = shapeInfo.get(iter);
 //		old.setDimUnknown();
-		old.setDim2(1, 1);
+//		old.setDim2(1, 1);
 //		System.out.println("hello:::" + old.toString());
 		shapeInfo.put(iter, old);
 	}
@@ -197,10 +219,11 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			rtn.setDim(decideDim(e, lhd, rhd));
 		}
 		else if (e instanceof RangeExpr){ // # of children is 3
-			infoDim lhd = evalExpr((Expr) (e.getChild(0)));
-			infoDim rhd = evalExpr((Expr) (e.getChild(2)));
-//			rtn.setDim(decideDim(e, lhd, rhd));
-			rtn.setDim(decideDimRange(e, lhd, rhd));
+//			infoDim lhd = evalExpr((Expr) (e.getChild(0)));
+//			infoDim rhd = evalExpr((Expr) (e.getChild(2)));
+////			rtn.setDim(decideDim(e, lhd, rhd));
+//			rtn.setDim(decideDimRange(e, lhd, rhd));
+			rtn.setDim2(1, 1); // maybe empty (0,0) if 3:2
 		}
 		else {
 			// special node
@@ -282,7 +305,7 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 	}
 	
 	/*
-	 * Decide range
+	 * Decide range (deprecated)
 	 *   1:n
 	 */
 	infoDim decideDimRange(Expr e, infoDim lhd, infoDim rhd){
@@ -430,5 +453,101 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			n++;
 		}
 		System.out.println("---------------");
+	}
+	
+	public ArrayList<String> getMethodList(){
+		printList(methodList);
+		return methodList;
+	}
+	
+	private void printList(ArrayList<String> x){
+		int n = 0;
+		for(String v : x){
+			System.out.println("function[" + n + "] : " + v);
+			n++;
+		}
+		System.out.println("--end--of--printList--");
+	}
+	
+	private void processParameter(ast.Function node, ArrayList<infoDim> DimList){
+		int len = node.getInputParamList().getNumChild();
+		if (len > 0) {
+			System.out.println("Read args for function <" + node.getName().getVarName() + ">");
+			if(len != DimList.size()){
+				System.out.println("** Not enough input parameters (" + len + " vs. " + DimList.size() + ") **");
+				System.exit(0);
+			}
+			int indx = 0;
+			for (Name n : node.getInputParamList()) {
+				infoDim t = new infoDim(n.getVarName());
+				t.setDim(DimList.get(indx));
+				System.out.println(n.getVarName() + " ==> " + DimList.get(indx).toString());
+				shapeInfo.put(n.getVarName(), t);
+				indx++;
+			}
+			System.out.println("--parameter--");
+		}
+	}
+	
+	/*
+	 * Add `ext` after `.m` file
+	 */
+	private String createInputArgs(String fname) {
+		int x = fname.lastIndexOf(".m");
+		String rtn = "";
+		String ext = "_args.txt";
+		if(x < 0){
+			rtn = fname + ext;
+		}
+		else {
+			rtn = fname.substring(0, x) + ext;
+		}
+		return rtn;
+	}
+	
+	/*
+	 * Input file should be put on the same directory
+	 *   as the `.m` file
+	 */
+	private void createInput(String fname){
+		try {
+			BufferedReader br = new BufferedReader(new FileReader(createInputArgs(fname)));
+			String line = br.readLine();
+			processLine(line);
+			br.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	/*
+	 * args[0]: function name
+	 * args[1]: # of parameters
+	 * args[2]: rank of first parameter
+	 * args[3..]: dims of first parameter
+	 * ...: next parameters
+	 */
+	private void processLine(String ln){
+		String[] args = ln.split(" ");
+		int num = Integer.parseInt(args[1]);
+		ArrayList<infoDim> val = new ArrayList<>();
+		int indx = 2;
+		for(int i=0;i<num;i++){
+			int v = Integer.parseInt(args[indx]); indx++;
+			int[] va= new int[v+1]; // v may be 0
+			infoDim d = new infoDim();
+			for(int j=0;j<v;j++){
+				va[j] = Integer.parseInt(args[indx+j]);
+			}
+			indx += v;
+			d.setDim(v, 1, va);
+//			System.out.println(d.toString());
+			val.add(d);
+		}
+		inputList.put(args[0], val); //save into list
 	}
 }

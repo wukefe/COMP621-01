@@ -1,5 +1,4 @@
-function run()
-	n = 10;
+function run(n)
 	for i = 1:n
 		disp(i);
 	end
