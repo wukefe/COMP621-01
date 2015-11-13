@@ -5,10 +5,10 @@ Hanfeng Chen
 
 The details of the node for project development can be found in the folder `ws` ([Click here](ws/readme.md)).
 
-## Time lines
+## Timelines
 
 - **Project proposal** on November 4, 2015
-- **First report for update** on November 13, 2015
+- **First project update** on November 13, 2015
 - **Next update...**
 
 ## To-do lists
@@ -35,8 +35,7 @@ The details of the node for project development can be found in the folder `ws` 
   + code
     - demo files
     - demo args
-  + Java files
-    - autoVector.java (main)
-    - other Java files
+  - autoVector.java (main)
+  - other Java files
 - README.md
 ```
