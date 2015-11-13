@@ -1,0 +1,49 @@
+infoDim evalExpr(Expr e, String varname){
+		System.out.println(e.getPrettyPrinted() + " --> " + e.dumpString());
+		infoDim rtn = new infoDim(varname);
+		if (e instanceof RangeExpr){
+			RangeExpr re = (RangeExpr)e;
+			Expr lhs = re.getLower();  int lhv = 0; String lhg = ""; boolean lhf = false;
+			Expr rhs = re.getUpper();  int rhv = 0; String rhg = ""; boolean rhf = false;
+			//System.out.println(lhs.getPrettyPrinted() + " --> " + lhs.dumpString());
+			if(lhs instanceof IntLiteralExpr){
+				lhv = Integer.parseInt(lhs.getPrettyPrinted());
+				lhf = true;
+			}
+			else lhg = lhs.getNodeString();
+			System.out.println("lhv = " + lhv);
+			if(rhs instanceof IntLiteralExpr){
+				rhv = Integer.parseInt(rhs.getPrettyPrinted());
+				rhf = true;
+			}
+			else rhg = rhs.getNodeString();
+			System.out.println("rhv = " + rhv);
+			boolean thf = false; int thv = 0; String thg = "";
+			if(lhf){
+				if(rhf){
+					thf = true; thv = rhv - lhv + 1;
+				}
+				else { thg = (lhv - 1 == 0)? rhg : rhg + "-" + (lhv - 1);  }
+			}
+			else {
+				if(rhf){
+					thg = rhv + "-" + lhg + "1";
+				}
+				else { thg = rhg + "-" + lhg + "1"; }
+			}
+			if(thf){
+				System.out.println("numeric len = " + thv);
+				int[] d = new int[2];
+				d[0] = 1; d[1] = thv;
+				rtn.setDim(2,1,d);
+			}
+			else {
+				System.out.println("thg = " + thg);
+				String[] d = new String[2];
+				d[0] = "1"; d[1] = thg;
+				rtn.setDim(2,2,d);
+			}
+			System.out.println(rtn.toString());
+		}
+		return null;
+	}

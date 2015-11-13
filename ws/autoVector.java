@@ -15,8 +15,12 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
     // (If it doesn't parse, abort)
 	if(args.length > 0){
 		Program ast = parseOrDie(args[0]);
-		autoVector analysis = new autoVector(ast);
-		analysis.analyze();
+		shapeVector shapeanalysis = new shapeVector(ast);
+		shapeanalysis.analyze();
+		shapeanalysis.printFinal();
+		return ;
+//		autoVector analysis = new autoVector(ast);
+//		analysis.analyze();
 		// ast.analyze(new autoVector());
 		// System.out.println(ast.getPrettyPrinted());
 	}

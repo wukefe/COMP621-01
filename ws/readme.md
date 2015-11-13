@@ -39,3 +39,38 @@ Ifcond
 currentInSet
 
 - always empty? (solve it)
+
+
+## McSAF and Tamer notes
+
+Expressions
+
+- PlusExpr: `+`, plus
+- MinusExpr: `-`, minus
+- MTimesExpr: `*`, matrix multiplication
+- MDivExpr: `/`, matrix inversion
+- ETimesExpr: `.*`, element-wise multiplication
+- EDivExpr: `./`, element-wise division
+- RangeExpr: `:`, 1:n
+
+Constant
+
+- IntLiteralExpr: integer
+- FPLiteralExpr: floating point
+- StringLiteralExpr: 'string'
+
+
+## Built-in list
+
+Done
+
+1. zeros
+2. input
+
+
+To-do
+
+- sum
+- and, or (logic)
+
+

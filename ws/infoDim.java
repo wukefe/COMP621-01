@@ -1,0 +1,225 @@
+import java.awt.Dimension;
+
+import org.antlr.runtime.tree.RewriteRuleElementStream;
+
+import sun.security.x509.DeltaCRLIndicatorExtension;
+
+/*
+ * infoDim
+ *   class for variable dimensions
+ * 
+ * status
+ *   0: not known
+ *   1: known with int
+ *   2: known with var
+ */
+public class infoDim {
+	int rank;      //rank: 1,2,...
+	int status;    //0,1
+	int[] dims;    //max 20 dims
+	String[] dimv; //max 20 dims
+	String name;   //name
+	
+	public infoDim(){
+		dims = new int[20];
+		dimv = new String[20];
+		clear();
+	}
+	
+	public infoDim(String n){
+		dims = new int[20];
+		dimv = new String[20];
+		clear();
+		name = n;
+	}
+	
+	public void clear(){
+		status = 0; name = ""; rank = 0;
+	}
+	
+	public void setDim(infoDim x){
+		if(x.status == 1) setDim(x.rank, x.status, x.dims);
+		else if(x.status == 2) setDim(x.rank, x.status, x.dimv);
+		else status = x.status;
+	}
+	
+	public void setDim(int r, int s, int[] d, String n){
+		rank = r;
+		status = s;
+		name = n;
+		for(int i=0;i<rank;i++){
+			dims[i] = d[i];
+		}
+	}
+	
+	public void setDim(int r, int s, int[] d){
+		setDim(r,s,d,name);
+	}
+	
+	public void setDim(int r, int s, String[] d){
+		rank = r;
+		status = s;
+		for(int i=0;i<rank;i++){
+			dimv[i] = d[i];
+		}
+	}
+	
+	public void setDim2(int d0, int d1){
+		rank = 2;
+		status = 1;
+		dims[0] = d0; dims[1] = d1;
+	}
+	
+	public void setDim2(String d0, String d1){
+		rank = 2;
+		status = 2;
+		dimv[0] = d0; dimv[1] = d1;
+	}
+	
+	public void setDimUnknown(){
+		status = 0; rank = 0;
+	}
+	
+	public void setName(String n){
+		name = n;
+	}
+	
+	public int getStatus() {
+		return status;
+	}
+	
+	/*
+	 * decide shape between two known vars 
+	 */
+	public static infoDim decideInfoA1(infoDim d0, infoDim d1){
+		infoDim rtn = new infoDim();
+		boolean f0,f1;
+		f0 = f1 = true;
+		for(int i=0;i<d0.rank;i++) if(d0.dims[i]!=1) {f0=false; break;} 
+		for(int i=0;i<d1.rank;i++) if(d1.dims[i]!=1) {f1=false; break;}
+		if(f0) rtn.setDim(d1);
+		else if(f1) rtn.setDim(d0);
+		else if(d0.rank == d1.rank){
+			boolean same = true;
+			for(int i=0;i<d0.rank;i++) if(d0.dims[i]!=d1.dims[i]) {same=false; break;}
+			if(same) rtn.setDim(d0);
+		}
+		return rtn;
+	}
+	
+	/*
+	 * d0's status is 1
+	 * d1's status is 2
+	 */
+	public static infoDim decideInfoA2(infoDim d0, infoDim d1){
+		infoDim rtn = new infoDim();
+		boolean f0 = true;
+		for(int i=0;i<d0.rank;i++) if(d0.dims[i]!=1) {f0=false; break;}
+		if(f0) rtn.setDim(d1);
+		return rtn;
+	}
+	
+	/*
+	 * d0's status is 2
+	 * d1's status is 2
+	 */
+	public static infoDim decideInfoA3(infoDim d0, infoDim d1){
+		infoDim rtn = new infoDim();
+		if(d0.rank == d1.rank){
+			boolean same = true;
+			for(int i=0;i<d0.rank;i++) if(!d0.dimv[i].equals(d1.dimv[i])) {same=false; break;}
+			if(same) rtn.setDim(d0);
+		}
+		return rtn;
+	}
+	
+	/*
+	 * Decide known var
+	 *   * (op == 1) multiplication
+	 *   / (op == 2) inversion
+	 */
+	public static infoDim decideInfoB1(infoDim d0, infoDim d1, int op){
+		infoDim rtn = new infoDim();
+		boolean f0,f1;
+		f0 = f1 = true;
+		for(int i=0;i<d0.rank;i++) if(d0.dims[i]!=1) {f0=false; break;} 
+		for(int i=0;i<d1.rank;i++) if(d1.dims[i]!=1) {f1=false; break;}
+		if(f0) rtn.setDim(d1);
+		else if(f1) rtn.setDim(d0);
+		else if(d0.rank == 2 && d1.rank == 2){ //max 2
+			boolean doable = (op==1?d0.dims[1]==d1.dims[0]:op==2?d0.dims[1]==d1.dims[1]:false);
+			if(doable) {
+				if(op==1) rtn.setDim2(d0.dims[0], d1.dims[1]);
+				else rtn.setDim2(d0.dims[0], d1.dims[0]);
+			}
+		}
+		return rtn;
+	}
+	
+	/*
+	 * Incomplete:
+	 *   consider the case: 2x3 * 3xN  --> 2xN
+	 */
+	public static infoDim decideInfoB2(infoDim d0, infoDim d1, int op){
+		infoDim rtn = new infoDim();
+		return rtn;
+	}
+	
+	public static infoDim decideInfoB3(infoDim d0, infoDim d1, int op){
+		infoDim rtn = new infoDim();
+		if(d0.rank==2 && d1.rank==2){
+			boolean doable = (op==1?d0.dimv[1].equals(d1.dimv[0]):op==2?d0.dimv[1].equals(d1.dimv[1]):false);
+			if(doable) {
+				if(op==1) rtn.setDim2(d0.dimv[0], d1.dimv[1]);
+				else rtn.setDim2(d0.dimv[0], d1.dimv[0]); //set string
+			}
+		}
+		return rtn;
+	}
+	
+	public boolean equals(infoDim x){
+		if(status != x.status) return false;
+		if(rank != x.rank) return false;
+		if(status==1) {
+			for(int i=0;i<rank;i++) if(dims[i]!=x.dims[i]) return false;
+		}
+		else if(status==2){
+			for(int i=0;i<rank;i++) if(!dimv[i].equals(x.dimv[i])) return false;
+		}
+		return true;
+	}
+	
+	public boolean isScalar() {
+		boolean f = (rank==2?(status==1?dims[0]==dims[1] && dims[0]==1:false):false);
+		return f;
+	}
+	
+	public int getLength(){
+		int tot = 0;
+		if(status == 1){
+			tot = rank>0?1:0;
+			for(int i=0;i<rank;i++) tot *= dims[i];
+		}
+		return tot;
+	}
+	
+	@Override
+	public String toString(){
+		String rtn = (name==""?"<null>":name) + ":[";
+		if(status==0) rtn += "unknown";
+		else if(status == 1) {
+			for(int i=0;i<rank;i++){
+				if(i>0) rtn += ",";
+				rtn += dims[i];
+			}
+		}
+		else if(status == 2){
+			for(int i=0;i<rank;i++){
+				if(i>0) rtn += ",";
+				rtn += dimv[i];
+			}
+		}
+		rtn += "]";
+		return rtn;
+	}
+}

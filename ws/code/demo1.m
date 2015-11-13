@@ -1,3 +1,8 @@
+n = input('input n: ');
+x = zeros(1,10);
+t = y .* 2 ;
+t = y ./ 2 ;
+t = y  / 2 ;
 for i = 1:n
 	f(x) = 0;
 	if i < 5
