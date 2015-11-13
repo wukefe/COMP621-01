@@ -72,5 +72,18 @@ To-do
 
 - sum
 - and, or (logic)
+- ones
+
+## M-File mode
+
+Script only
+- no function is allowed
+- only statements
+- see `demo0.m`
+
+Function only
+- no statement outside function
+- accept multiple functions
+- see `demo2.m`
 
 

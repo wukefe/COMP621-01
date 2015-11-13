@@ -15,12 +15,17 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
     // (If it doesn't parse, abort)
 	if(args.length > 0){
 		Program ast = parseOrDie(args[0]);
+		autoVector analysis = new autoVector(ast);
+//		analysis.analyze();
+		// get function list
+		methodVector mv = new methodVector();
+		ast.analyze(mv);
+		System.out.println("#################");
+		analysis.methodList = new ArrayList<String>(mv.getMethodList());
 		shapeVector shapeanalysis = new shapeVector(ast);
 		shapeanalysis.analyze();
-		shapeanalysis.printFinal();
+//		shapeanalysis.printFinal();
 		return ;
-//		autoVector analysis = new autoVector(ast);
-//		analysis.analyze();
 		// ast.analyze(new autoVector());
 		// System.out.println(ast.getPrettyPrinted());
 	}
@@ -32,6 +37,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   // map Assignment to string to look up conditions
   Map<AssignStmt, String> OutFlowCond;
   int DepthFor = 0;
+  public ArrayList<String> methodList;
   
   // (6)
   @Override

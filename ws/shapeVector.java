@@ -21,6 +21,7 @@ import ast.NameExpr;
 import ast.ParameterizedExpr;
 import ast.PlusExpr;
 import ast.RangeExpr;
+import ast.Script;
 import ast.Stmt;
 import ast.StringLiteralExpr;
 import natlab.toolkits.path.BuiltinQuery;
@@ -73,6 +74,23 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		for (int i = 0; i < node.getNumChild(); i++) {
 			node.getChild(i).analyze(this);
 		}
+	}
+	
+	/*
+	 * Need initialization before
+	 *   processing different functions
+	 */
+	@Override
+	public void caseFunction(ast.Function node) {
+		shapeInfo = new HashMap<>();
+		skip = new HashSet<>();
+		caseASTNode(node);
+		printFinal();
+	}
+	
+	@Override
+	public void caseScript(Script node){
+		caseASTNode(node);
 	}
 	
 	@Override
@@ -390,7 +408,10 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			infoDim old = shapeInfo.get(name);
 			if(!old.equals(x)) {
 				System.out.println("warning : variable " + name + " is redefined.");
-				shapeInfo.put(name, new infoDim());
+				System.out.println(old.toString());
+				System.out.println(x.toString());
+				old.setDimUnknown();
+				shapeInfo.put(name, old);
 			}
 		}
 		else shapeInfo.put(name, x);
