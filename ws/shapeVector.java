@@ -15,20 +15,29 @@ import analysis.ForwardAnalysis;
 import ast.ASTNode;
 import ast.AssignStmt;
 import ast.EDivExpr;
+import ast.EQExpr;
 import ast.ETimesExpr;
 import ast.Expr;
 import ast.FPLiteralExpr;
 import ast.ForStmt;
+import ast.GEExpr;
+import ast.GTExpr;
 import ast.IntLiteralExpr;
+import ast.LEExpr;
+import ast.LTExpr;
 import ast.MDivExpr;
 import ast.MTimesExpr;
 import ast.MinusExpr;
+import ast.NEExpr;
 import ast.Name;
 import ast.NameExpr;
+import ast.NotExpr;
 import ast.ParameterizedExpr;
 import ast.PlusExpr;
 import ast.RangeExpr;
 import ast.Script;
+import ast.ShortCircuitAndExpr;
+import ast.ShortCircuitOrExpr;
 import ast.Stmt;
 import ast.StringLiteralExpr;
 import natlab.toolkits.path.BuiltinQuery;
@@ -170,10 +179,16 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		return rtn;
 	}
 	
+	/*
+	 * one operand : decideDim(e, rhd), not(~)
+	 * two operands: decideDim(e, lhd, rhd), + - ...
+	 *       range : 1:n
+	 * 
+	 */
 	infoDim evalExpr(Expr e){
-//		System.out.println(e.getPrettyPrinted() + " --> " + e.dumpString());
 		infoDim rtn = new infoDim();
 		int ChildNum = e.getNumChild();
+//		System.out.println(e.getPrettyPrinted() + " --> " + e.dumpString() + " num = " + ChildNum);
 		
 		if(ChildNum < 2){
 			if(e instanceof IntLiteralExpr || e instanceof FPLiteralExpr){
@@ -191,6 +206,11 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 				else {
 					// unknown
 				}
+			}
+			else { // one child
+				infoDim rhd = evalExpr((Expr) (e.getChild(0)));
+				rtn.setDim(decideDim(e, rhd)); // one operand
+//				System.out.println("special -- " + e.getPrettyPrinted() + " : " + e.dumpString());
 			}
 		}
 		else if (e instanceof ParameterizedExpr) {
@@ -259,11 +279,29 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		else if(e instanceof MDivExpr){ // /
 			rtn.setDim(decideDimExpr1(lhd,rhd,2));
 		}
+		else if(e instanceof LTExpr
+				|| e instanceof GTExpr
+				|| e instanceof LEExpr
+				|| e instanceof GEExpr
+				|| e instanceof EQExpr
+				|| e instanceof NEExpr){
+			// < > <= >= = ~=
+			rtn.setDim(decideDimExpr0(lhd,rhd)); // same as + -
+		}
+		else if(e instanceof ShortCircuitAndExpr
+				|| e instanceof ShortCircuitOrExpr){
+			// && ||
+			rtn.setDim(decideDimExpr0(lhd,rhd)); // same as + -
+		}
 		return rtn;
 	}
 	
 	infoDim decideDim(Expr e, infoDim rhd){
-		return null;
+		infoDim rtn = new infoDim();
+		if(e instanceof NotExpr){
+			rtn.setDim(rhd);
+		}
+		return rtn;
 	}
 	
 	/*

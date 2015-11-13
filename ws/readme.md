@@ -1,14 +1,3 @@
-## To-do Lists
-
-1. Read the whole file to get the list of functions
-2. Process for-loop
-3. Process if-else inside for-loop
-4. Apply dataflow equation
-5. Generate transformed code - format in vectorization
-6. Generate transformed code - format in parfor
-7. Benchmark tests
-8. Write up reports
-
 ## Implementation Questions
 
 ParameterizedExpr
@@ -52,6 +41,16 @@ Expressions
 - ETimesExpr: `.*`, element-wise multiplication
 - EDivExpr: `./`, element-wise division
 - RangeExpr: `:`, 1:n
+
+Logic
+
+- LTExpr: `<`
+- LEExpr: `<=`
+- GTExpr: `>`
+- GEExpr: `>=`
+- EQExpr: `=`
+- NEExpr: `~=`
+- NotExpr:`~`
 
 Constant
 
