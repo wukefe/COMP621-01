@@ -65,11 +65,11 @@ Done
 
 1. zeros
 2. input
+3. sum
 
 
 To-do
 
-- sum
 - and, or (logic)
 - ones
 

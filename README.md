@@ -7,8 +7,9 @@ The details of the note for project development can be found in the folder `ws` 
 
 ## Timelines
 
-- **Project proposal** on November 4, 2015
-- **First project update** on November 13, 2015
+- **Project proposal** on November 4, 2015 (Submitted)
+- **1st project update** on November 13, 2015 (Submitted)
+- **2nd project update** on November 20, 2015
 - **Next update...**
 
 ## To-do lists
