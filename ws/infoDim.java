@@ -238,6 +238,26 @@ public class infoDim {
 		return rtn;
 	}
 	
+	/*
+	 * size:
+	 *   reduce dimension
+	 */
+	public infoDim getDimSize(){
+		infoDim rtn = new infoDim();
+		rtn.setDim2(1, rank);
+		return rtn;
+	}
+	
+	/*
+	 * length, ndims, det:
+	 *   return the length of max dim
+	 */
+	public infoDim getDimMax(){
+		infoDim rtn = new infoDim();
+		rtn.setDim2(1, 1);
+		return rtn;
+	}
+	
 	public String genForRange(){
 		String rtn = "";
 		if(status == 1){
@@ -252,6 +272,32 @@ public class infoDim {
 		}
 		return rtn;
 	}
+	
+	/*
+	 * Set infoDim
+	 */
+//	public void setShape2(infoDim x){
+//		rank = x.rank;
+//		status = x.status;
+//		if(x.status==1){
+//			if(x.rank==1) {
+//				dims[0]=dims[1]=x.dims[0];
+//				rank = 2;
+//			}
+//			else {
+//				for(int i=0;i<x.rank;i++) dims[i]=x.dims[i];
+//			}
+//		}
+//		else if(x.status==2){
+//			if(x.rank==1) { //expand rank
+//				dimv[0]=dimv[1]=x.dimv[0];
+//				rank = 2;
+//			}
+//			else {
+//				for(int i=0;i<x.rank;i++) dimv[i]=x.dimv[i];
+//			}
+//		}
+//	}
 	
 	@Override
 	public String toString(){

@@ -63,9 +63,12 @@ Constant
 
 Done
 
-1. zeros
-2. input
-3. sum
+- StringGroup1: `zeros,ones,eye,rand,randn`
+- StringGroup2: `sqrt,exp,log,log10,log2,pow2,abs,ceil,floor,round,sin,cos,tan,asin,acos,atan`
+- StringGroup3: `sum,max,min,mean,std,prod,median`
+- `input`
+- `size`
+- `length,ndims,det`
 
 
 To-do

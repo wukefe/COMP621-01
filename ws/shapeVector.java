@@ -67,6 +67,7 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		ScriptName = name; //set script name, if in script mode
 //		System.out.println("new name: " + createInputArgs(name));
 		createInput(name);
+		initialBuiltinGroups();
 	}
 	
 	private Set<Stmt> skip = new HashSet<>();
@@ -387,12 +388,37 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		return rtn;
 	}
 	
+	public Map<String, Integer> BuiltinGroup1 = new HashMap<>();
+	public String[] StringGroup1 = {"zeros","ones","eye","rand","randn"};
+	public Map<String, Integer> BuiltinGroup2 = new HashMap<>();
+	public String[] StringGroup2 = {"sqrt","exp","log","log10","log2","pow2","abs",
+			"ceil","floor","round",
+			"sin","cos","tan","asin","acos","atan"};
+	public Map<String, Integer> BuiltinGroup3 = new HashMap<>();
+	public String[] StringGroup3 = {"sum","max","min","mean","std","prod","median"};
+	
+	private void initialBuiltinGroups(){
+		for(int i=0;i<StringGroup1.length;i++){
+			BuiltinGroup1.put(StringGroup1[i], i);
+		}
+		for(int i=0;i<StringGroup2.length;i++){
+			BuiltinGroup2.put(StringGroup2[i], i);
+		}
+		for(int i=0;i<StringGroup3.length;i++){
+			BuiltinGroup3.put(StringGroup3[i], i);
+		}
+	}
+	
+	/*
+	 * length: return max length dim
+	 * size: return shape
+	 */
 	infoDim decideDimBuiltin(ParameterizedExpr e){
 		String name = e.getVarName();
 		infoDim rtn = new infoDim();
 		ast.List<Expr> vars = e.getArgList();
 		int len = vars.getNumChild();
-		if(name.equals("zeros")){
+		if(BuiltinGroup1.containsKey(name)){
 			System.out.println("len = " + len);
 			if(len==1){
 				Expr e0 = vars.getChild(0);
@@ -421,19 +447,31 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 				}
 			}
 		}
+		else if(BuiltinGroup2.containsKey(name)){
+			if(len==1){
+				infoDim rhd = evalExpr(vars.getChild(0));
+				rtn.setDim(rhd);
+			}
+		}
+		else if(BuiltinGroup3.containsKey(name)){
+			if(len==1){
+				infoDim rhd = evalExpr(vars.getChild(0));
+				rtn.setDim(rhd.getDimSum()); //special
+			}
+		}
 		else if(name.equals("input")){
 			rtn.setDim2(1,1);
 		}
-		else if(name.equals("sum")){
+		else if(name.equals("size")){
 			if(len==1){
 				infoDim rhd = evalExpr(vars.getChild(0));
-				rtn.setDim(rhd.getDimSum());
+				rtn.setDim(rhd.getDimSize()); //special
 			}
 		}
-		else if(name.equals("sqrt")){
-			if(len == 1){
+		else if(name.equals("length") || name.equals("ndims") || name.equals("det")){
+			if(len==1){
 				infoDim rhd = evalExpr(vars.getChild(0));
-				rtn.setDim(rhd);
+				rtn.setDim(rhd.getDimMax()); //special
 			}
 		}
 		//System.out.println("name = " + name + " : " + rtn.toString());
