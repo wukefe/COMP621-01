@@ -1,13 +1,22 @@
 import java.util.*;
-import ast.Program;
+
+import javax.management.Query;
+
 import natlab.*;
 import analysis.*;
 import ast.*;
+import ast.List;
+
 import com.google.common.base.Joiner;
 
 public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
-  public autoVector(ASTNode tree){
+  public autoVector(ASTNode tree, String name){
 	  super(tree);
+	  currentInSet = newInitialFlow();
+	  currentOutSet= new HashSet<>(currentInSet);
+	  ShapeAnalysis= new shapeVector(tree, name);
+	  ShapeAnalysis.analyze();
+	  methodList = new ArrayList<String>(ShapeAnalysis.getMethodList());
   }
 	
   public static void main(String[] args) {
@@ -15,17 +24,16 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
     // (If it doesn't parse, abort)
 	if(args.length > 0){
 		Program ast = parseOrDie(args[0]);
-		autoVector analysis = new autoVector(ast);
+		autoVector analysis = new autoVector(ast, args[0]);
 //		analysis.analyze();
 		// get function list
 //		methodVector mv = new methodVector();
 //		ast.analyze(mv);
-		shapeVector shapeanalysis = new shapeVector(ast, args[0]);
-		shapeanalysis.analyze();
-		analysis.methodList = new ArrayList<String>(shapeanalysis.getMethodList());
+//		shapeVector ShapeAnalysis = new shapeVector(ast, args[0]);
+//		ShapeAnalysis.analyze();
+//		analysis.methodList = new ArrayList<String>(ShapeAnalysis.getMethodList());
 //		shapeanalysis.printFinal();
-		return ;
-		// ast.analyze(new autoVector());
+		ast.analyze(analysis); // traverse autoVector
 		// System.out.println(ast.getPrettyPrinted());
 	}
   }
@@ -37,6 +45,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   Map<AssignStmt, String> OutFlowCond;
   int DepthFor = 0;
   public ArrayList<String> methodList;
+  private shapeVector ShapeAnalysis;
   
   // (6)
   @Override
@@ -74,8 +83,6 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   
   @Override
   public void caseScript(Script node) {
-	  currentInSet = newInitialFlow();
-	  currentOutSet= new HashSet<>(currentInSet);
 	  caseASTNode(node);
   }
   
@@ -91,11 +98,16 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  //Print("size = " + outFlowSets.size());
   }
   
+  private infoDim ForRange;
+  
   private void processForStmt(ForStmt node){
-	  DepthFor++;
+//	  DepthFor++;
 	  ast.List<Stmt> x = node.getStmts();
 	  String iter =  node.getAssignStmt().getLHS().getVarName(); // iter variable
+	  ForRange = new infoDim(iter);
+	  ForRange.setDim(ShapeAnalysis.getForRange(node.getAssignStmt().getRHS()));
 	  Print("iter = " + iter);
+	  Print("range= " + ForRange.toString());
 	  for(Stmt a : x){
 		  if (a instanceof AssignStmt){
 			  AssignStmt ta = (AssignStmt)a;
@@ -112,12 +124,12 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  // test(iter, outFlowSets)
 	  PrintA(outFlowSets); //recursive solution
 	  PrintB(OutFlowCond);
-	  DepthFor--;
+//	  DepthFor--;
   }
   
   @Override
   public void caseIfStmt(IfStmt node){
-	  if(DepthFor > 0)
+//	  if(DepthFor > 0)
 		  processIfStmt(node);
 	  caseASTNode(node);
   }
@@ -250,6 +262,56 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  if(cnt == 0) str = "";
 	  return str;
   }
+  
+	/*
+	 * Z(i) = X(i) + y; ==> Z = X .+ y;
+	 */
+  public String genCodeVector(AssignStmt a){
+	  Expr lx = a.getLHS();
+	  Expr rx = a.getRHS();
+	  if(lx instanceof ParameterizedExpr){
+		  String omit = genExprList(((ParameterizedExpr) lx).getArgList());
+		  System.out.println("val : " + lx.getVarName() + " = " + evalParameter(rx, omit));
+		  
+//		  String left = lx.getNodeString();
+//		  String next = left.substring(left.indexOf('('));
+//		  String text = a.getNodeString();
+//		  System.out.println("left = " + left);
+//		  System.out.println("next = " + next);
+//		  next = next.replaceAll("(", "\\(");
+//		  next = next.replaceAll(")", "\\)");
+//		  System.out.println("next = " + next);
+//		  System.out.println("final : " + text.replaceAll(next, ""));
+	  }
+	  return "";
+  }
+  
+  private String evalParameter(Expr x, String omit){
+	  String rtn = "";
+	  if(x instanceof ParameterizedExpr){
+		  ParameterizedExpr pe = (ParameterizedExpr)x;
+		  String val = genExprList(pe.getArgList());
+		  if(omit.equals(val)) {
+			  String leftname = pe.getVarName();
+			  if(ShapeAnalysis.isBuiltin(leftname)){
+				  return leftname+"("+ForRange.genForRange()+")";
+			  }
+			  return leftname;
+		  }
+	  }
+	  for(int i=0;i<x.getNumChild();i++){
+		  rtn += evalParameter((Expr)(x.getChild(i)), omit);
+	  }
+	  return rtn;
+  }
+  
+  private String genExprList(List<Expr> e){
+	  String rtn = "";
+	  for(Expr x : e){
+		  rtn += x.getNodeString();
+	  }
+	  return rtn;
+  }
 
   private static Program parseOrDie(String path) {
     java.util.List<CompilationProblem> errors = new ArrayList<>();
@@ -268,6 +330,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  System.out.println(n + ": " + s.getKey().getPrettyPrinted());
 		  Set<AssignStmt> t = s.getValue();
 		  for(AssignStmt ta : t){
+			  genCodeVector(ta);
 			  System.out.println("\t" + ta.getPrettyPrinted());
 		  }
 		  n ++;

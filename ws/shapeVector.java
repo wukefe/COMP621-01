@@ -11,6 +11,9 @@ import java.util.Set;
 
 import javax.swing.text.AbstractDocument.BranchElement;
 
+import com.google.common.collect.Range;
+import com.sun.org.apache.xerces.internal.util.Status;
+
 import analysis.ForwardAnalysis;
 import ast.ASTNode;
 import ast.AssignStmt;
@@ -41,6 +44,7 @@ import ast.ShortCircuitOrExpr;
 import ast.Stmt;
 import ast.StringLiteralExpr;
 import natlab.toolkits.path.BuiltinQuery;
+import natlab.toolkits.rewrite.threeaddress.LeftThreeAddressRewrite;
 import sun.launcher.resources.launcher_de;
 import natlab.tame.builtin.Builtin.Var;
 import natlab.toolkits.BuiltinSet;
@@ -165,17 +169,26 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 		Expr exprleft = node.getLHS();
 		String varname = "";
 		infoDim rtn = new infoDim();
+		boolean indexass = false; //index assignment
 		if(exprleft instanceof ParameterizedExpr){
 			ParameterizedExpr p = (ParameterizedExpr) exprleft;
 			varname = p.getVarName();
+			indexass = true;
 		}
 		else {
 			varname = ((NameExpr)exprleft).getVarName();
 		}
 		rtn.setDim(evalExpr(node.getRHS()));
-		rtn.setName(varname); //setname
+		rtn.setName(varname); //set name
 		System.out.println("--> " + rtn.toString());
-		saveVarInfo(varname, rtn); //save variable
+		if(indexass){
+			infoDim ltn = new infoDim(varname);
+			ltn.setDim(evalExpr(exprleft)); //evaluate left
+			if(!ltn.equals(rtn)){ //compare left and right
+				saveVarInfo(varname, rtn); //set to unknown
+			}
+		}
+		else saveVarInfo(varname, rtn); //save variable
 		return rtn;
 	}
 	
@@ -412,7 +425,16 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			rtn.setDim2(1,1);
 		}
 		else if(name.equals("sum")){
-			// todo
+			if(len==1){
+				infoDim rhd = evalExpr(vars.getChild(0));
+				rtn.setDim(rhd.getDimSum());
+			}
+		}
+		else if(name.equals("sqrt")){
+			if(len == 1){
+				infoDim rhd = evalExpr(vars.getChild(0));
+				rtn.setDim(rhd);
+			}
 		}
 		//System.out.println("name = " + name + " : " + rtn.toString());
 		return rtn;
@@ -490,7 +512,7 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			System.out.println("\t" + s.getValue().toString());
 			n++;
 		}
-		System.out.println("---------------");
+		System.out.println("----------------");
 	}
 	
 	public ArrayList<String> getMethodList(){
@@ -555,7 +577,8 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			br.close();
 		} catch (FileNotFoundException e) {
 			// TODO Auto-generated catch block
-			e.printStackTrace();
+//			e.printStackTrace();
+			// do nothing
 		} catch (IOException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -587,5 +610,45 @@ public class shapeVector extends ForwardAnalysis<Set<infoDim>> {
 			val.add(d);
 		}
 		inputList.put(args[0], val); //save into list
+	}
+	
+	/*
+	 * Get range for for statement
+	 *   learn from decideDimRange
+	 */
+	public infoDim getForRange(Expr arg){
+		infoDim rtn = new infoDim();
+		if(!(arg instanceof RangeExpr)) return rtn;
+		RangeExpr e = (RangeExpr)arg;
+		infoDim lhd = evalExpr(e.getLower()); //eval left
+		infoDim rhd = evalExpr(e.getUpper()); //eval right
+		if(lhd.isScalar() && rhd.isScalar()){
+			Expr e0 = (Expr)(e.getChild(0));
+			Expr e2 = (Expr)(e.getChild(2));
+			String left = e0.getNodeString();
+			String right= e2.getNodeString();
+			if(e0 instanceof IntLiteralExpr){
+				if(e2 instanceof IntLiteralExpr){
+					int v = Integer.parseInt(right) - Integer.parseInt(left) + 1;
+					rtn.setDim2(1, v);
+				}
+				else if(left.equals("1")){
+					rtn.setDim2("1", right);
+				}
+				else {
+					String s = right + "-" + left + "1";
+					rtn.setDim2("1", s);
+				}
+			}
+			else {
+				String s = right + "-" + left + "1";
+				rtn.setDim2("1", s);
+			}
+		}
+		return rtn;
+	}
+	
+	public boolean isBuiltin(String name){
+		return query.isBuiltin(name);
 	}
 }

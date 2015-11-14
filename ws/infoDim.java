@@ -203,6 +203,56 @@ public class infoDim {
 		return tot;
 	}
 	
+	/*
+	 * Builtin
+	 *   sum: reduce one dimension (skip 1) 
+	 */
+	public infoDim getDimSum(){
+		infoDim rtn = new infoDim();
+		if(status == 1){
+			int slot = -1;
+			for(int i=0;i<rank;i++){
+				if(dims[i]!=1) {
+					slot = i; break;
+				}
+			}
+			if(slot<0) rtn.setDim2(1, 1);
+			else {
+				rtn.setDim(this);
+				rtn.dims[slot] = 1; //set to one (int)
+			}
+		}
+		else if(status == 2){
+			int slot = -1;
+			for(int i=0;i<rank;i++){
+				if(!dimv[i].equals("1")) {
+					slot = i; break;
+				}
+			}
+			if(slot>=0){
+				rtn.setDim(this);
+				rtn.dimv[slot] = "1"; //set to one (string)
+			}
+			else rtn.setDim2(1, 1);//maybe impossible
+		}
+		return rtn;
+	}
+	
+	public String genForRange(){
+		String rtn = "";
+		if(status == 1){
+			if(rank == 2){
+				rtn = dims[0] + ":" + dims[1];
+			}
+		}
+		else if(status == 2){
+			if(rank == 2){
+				rtn = dimv[0] + ":" + dimv[1];
+			}
+		}
+		return rtn;
+	}
+	
 	@Override
 	public String toString(){
 		String rtn = (name==""?"<null>":name) + ":[";

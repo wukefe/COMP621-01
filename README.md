@@ -3,7 +3,7 @@
 ---
 Hanfeng Chen
 
-The details of the node for project development can be found in the folder `ws` ([Click here](ws/readme.md)).
+The details of the note for project development can be found in the folder `ws` ([Click here](ws/readme.md)).
 
 ## Timelines
 
