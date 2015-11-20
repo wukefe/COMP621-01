@@ -29,6 +29,44 @@ currentInSet
 
 - always empty? (solve it)
 
+## Restrictions
+
+### Case 1
+
+```matlab
+if n > 10
+	w = 1;
+else
+	w = 2;
+```
+
+**Error message**:
+
+Parse error: [1, 1] Function lacks an explicit end.  If any function has an explicit end, then all must.
+
+### Case 2
+
+```matlab
+w = zeros(1, 1);
+w = zeros(1, 1);
+```
+
+**Compiled successfully**
+
+
+### Case 3
+
+```matlab
+function [res] = foo(x)
+	w = zeros(1, 5);
+	for i=1:5
+		k = 1 + i;
+		w(i) = k - 1;
+	res = x;
+end
+```
+
+**The same error as case 1**
 
 ## McSAF and Tamer notes
 

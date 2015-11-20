@@ -59,6 +59,8 @@ import natlab.toolkits.BuiltinSet;
  * 
  * Restrictions:
  *   no redefinition is allowed (assigned once)
+ *   or
+ *   shape not changed after next assignments
  */
 
 public class shapeVector extends ForwardAnalysis<Set<infoDim>> {

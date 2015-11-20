@@ -1,19 +1,52 @@
 import java.util.*;
 import natlab.*;
+import natlab.tame.BasicTamerTool;
+import natlab.tame.callgraph.SimpleFunctionCollection;
+import natlab.tame.classes.reference.PrimitiveClassReference;
+import natlab.tame.interproceduralAnalysis.InterproceduralAnalysis;
+import natlab.tame.interproceduralAnalysis.InterproceduralAnalysisNode;
+import natlab.tame.valueanalysis.IntraproceduralValueAnalysis;
+import natlab.tame.valueanalysis.ValueAnalysis;
+import natlab.tame.valueanalysis.ValueFlowMap;
+import natlab.tame.valueanalysis.ValueSet;
+import natlab.tame.valueanalysis.aggrvalue.AggrValue;
+import natlab.tame.valueanalysis.aggrvalue.AggrValueFactory;
+import natlab.tame.valueanalysis.basicmatrix.BasicMatrixValue;
+import natlab.tame.valueanalysis.basicmatrix.BasicMatrixValueFactory;
+import natlab.tame.valueanalysis.components.isComplex.isComplexInfoFactory;
+import natlab.tame.valueanalysis.components.shape.DimValue;
+import natlab.tame.valueanalysis.components.shape.Shape;
+import natlab.tame.valueanalysis.components.shape.ShapePropagator;
+import natlab.tame.valueanalysis.value.ValueFactory;
+import natlab.tame.valueanalysis.value.Args;
+import natlab.tame.valueanalysis.value.Res;
+import natlab.toolkits.BuiltinSet;
+import natlab.toolkits.filehandling.GenericFile;
+import natlab.toolkits.path.BuiltinQuery;
+import natlab.toolkits.path.FileEnvironment;
 import analysis.*;
 import ast.*;
 import ast.List;
+import ast.ASTNodeAnnotation.Child;
 
 import com.google.common.base.Joiner;
+import com.sun.javafx.binding.DoubleConstant;
+import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
+
+
+/*
+ * Useful files from https://github.com/Sable/mclab-core/
+ *   tame/InterproceduralAnalysis/InterproceduralAnalysis.java     --main analysis
+ *   tame/InterproceduralAnalysis/InterproceduralAnalysisNode.java --individual node analysis
+ *   
+ */
 
 public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   public autoVector(ASTNode tree, String name){
 	  super(tree);
 	  currentInSet = newInitialFlow();
 	  currentOutSet= new HashSet<>(currentInSet);
-	  ShapeAnalysis= new shapeVector(tree, name);
-	  ShapeAnalysis.analyze();
-	  methodList = new ArrayList<String>(ShapeAnalysis.getMethodList());
+	  initAnalysis(name);
   }
 	
   public static void main(String[] args) {
@@ -33,6 +66,131 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		ast.analyze(analysis); // traverse autoVector
 		// System.out.println(ast.getPrettyPrinted());
 	}
+	if(1==0){
+		System.out.println("++++++++");
+		GenericFile gFile = GenericFile.create("code/demo3.m");
+		FileEnvironment env = new FileEnvironment(gFile);
+		SimpleFunctionCollection callgraph = new SimpleFunctionCollection(env);
+//		BasicTamerTool.doIntOk = false;
+		BasicTamerTool.setDoIntOk(false);
+//		
+//		String argx = "DOUBLE&1*1&REAL";
+		String argx = "";
+		String[] argsList = {argx};
+//		ArrayList<AggrValue<BasicMatrixValue>> inputValues = getListOfInputValues(argsList);
+		ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
+        ValueFactory<AggrValue<BasicMatrixValue>> factory = new BasicMatrixValueFactory();
+        System.out.println(callgraph.toString());
+        ValueAnalysis<AggrValue<BasicMatrixValue>> analysis = new ValueAnalysis<AggrValue<BasicMatrixValue>>(
+                callgraph, Args.newInstance(inputValues) , factory);
+        System.out.println("here1 - " + analysis.toString());
+        System.out.println("++++++++");
+//        System.out.println(analysis.getMainNode().getFunction().toString());
+        System.out.println(analysis.getMainNode().getResult().toString());
+        analysis.getNodeList();
+//        ShapePropagator sp = ShapePropagator.getInstance();
+//        analysis.
+	}
+  }
+  
+  public static ArrayList<AggrValue<BasicMatrixValue>> getListOfInputValues(
+          String[] args) {
+      ArrayList<AggrValue<BasicMatrixValue>> list = new ArrayList<AggrValue<BasicMatrixValue>>(
+              args.length);
+      for (String argSpecs : args) {
+          String delims = "[\\&]";
+          String[] specs = argSpecs.split(delims);
+          PrimitiveClassReference clsType = PrimitiveClassReference
+                  .valueOf(specs[0]);
+          list.add(new BasicMatrixValue(null, clsType, specs[1], specs[2]));
+      }
+      return list;
+  }
+  
+  /*
+   * Initialize interprocedural analysis
+   */
+  public void initAnalysis(String filepath){
+	  GenericFile gFile = GenericFile.create(filepath); //input file
+	  FileEnvironment env = new FileEnvironment(gFile);
+	  SimpleFunctionCollection callgraph = new SimpleFunctionCollection(env); //contains all functions
+	  BasicTamerTool.setDoIntOk(false);
+	  
+	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
+	  ValueFactory<AggrValue<BasicMatrixValue>> factory = new BasicMatrixValueFactory();
+	  FuncAnalysis = new ValueAnalysis<AggrValue<BasicMatrixValue>>(
+              callgraph, Args.newInstance(inputValues) , factory);
+	  VarsAnalysis = new HashMap<>();
+	  System.out.println("++++++++++++ Result: +++++++++++");
+	  System.out.println(FuncAnalysis.toString());
+//	  System.out.println(FuncAnalysis.getMainNode().getPrettyPrinted());
+//	  for(Map.Entry<ASTNode, ?> x : FuncAnalysis.getMainNode().getAnalysis().getOutFlowSets().entrySet()){
+//		  ASTNode y = (ASTNode) x.getKey();
+//		  System.out.println(y.getPrettyPrinted());
+//		  System.out.println(y.dumpString());
+//		  System.out.println(x.getValue());
+//		  System.out.println("************");
+//	  }
+//	  ValueFlowMap<?> x = (ValueFlowMap<?>)FuncAnalysis.getMainNode().getAnalysis().getOutFlowSets().get(FuncAnalysis.getMainNode().getFunction().getAst());
+//	  System.out.println(x);
+//	  for(String name : x.keySet()){
+//		  System.out.println(name + " --> " +x.get(name));
+//	  }
+//	  System.out.println(FuncAnalysis.getPrettyPrinted());
+//	  System.out.println(FuncAnalysis.getMainNode().getResult().toString());
+//	  System.out.println(callgraph.toString());
+	  isFuncVectorOK();
+	  System.out.println("--is-function-vector-okay--");
+  }
+  
+  public boolean isFuncVectorOK(){
+	  Map<String, Boolean> FuncVector = new HashMap<>();
+	  // very very long
+	  for(InterproceduralAnalysisNode<IntraproceduralValueAnalysis<AggrValue<BasicMatrixValue>>, Args<AggrValue<BasicMatrixValue>>, Res<AggrValue<BasicMatrixValue>>> currentfunction : FuncAnalysis.getNodeList()){
+//		  currentfunction.getAnalysis().getOutFlowSets()
+		  Map<String, ValueSet<AggrValue<BasicMatrixValue>>> SingleFunc = new HashMap<>();
+		  String FuncName = currentfunction.getFunction().getName();
+		  boolean flag = true;
+//		  System.out.println("fname = " + FuncName);
+		  ValueFlowMap<AggrValue<BasicMatrixValue>> currentflows = (ValueFlowMap<AggrValue<BasicMatrixValue>>)currentfunction.getAnalysis().getOutFlowSets().get(currentfunction.getFunction().getAst());
+		  decideOutset(currentflows, SingleFunc);
+//		  for(Map.Entry<ASTNode, ValueFlowMap<AggrValue<BasicMatrixValue>>> currentflows : currentfunction.getAnalysis().getOutFlowSets().entrySet()){
+//			  ValueFlowMap<?> x = (ValueFlowMap<?>)currentflow;
+//			  decideOutset(currentflows.getValue(), SingleFunc);
+//			  for(ValueFlowMap<AggrValue<BasicMatrixValue>> currentflow : currentflows.getValue())
+//				  decideOutset((ValueFlowMap<AggrValue<BasicMatrixValue>>)currentflow);
+//			  System.out.println(currentflows.getValue());
+//		  }
+		  FuncVector.put(FuncName, flag);
+//		  if(SingleFunc.containsKey("res"))
+//			  System.out.println("  | " + SingleFunc.get("res"));
+//		  for(Map.Entry<String, ValueSet<AggrValue<BasicMatrixValue>>> iter : SingleFunc.entrySet()){
+//			  System.out.println(iter.getKey() + " --> " + iter.getValue());
+//		  }
+		  VarsAnalysis.put(FuncName, SingleFunc);
+	  }
+	  return false;
+  }
+  
+  private boolean decideOutset(ValueFlowMap<AggrValue<BasicMatrixValue>> oneset, Map<String, ValueSet<AggrValue<BasicMatrixValue>>> SingleFunc) {
+	  for(String name : oneset.keySet()){
+		  ValueSet<AggrValue<BasicMatrixValue>> x = oneset.get(name);
+		  SingleFunc.put(name, x);
+//		  Iterator<AggrValue<BasicMatrixValue>> iter = x.iterator();
+//		  System.out.println("111111111");
+//		  for(AggrValue<BasicMatrixValue> one : x.values()){
+//			  BasicMatrixValue t = (BasicMatrixValue)one;
+//			  System.out.println(t.getShape().toString());
+//			  System.out.println(one.toString());
+//			  if(!SingleFunc.containsKey(name)){
+//				  System.out.println(name + " --> " + one);
+//				  SingleFunc.put(name, one); //need a copy of one ?
+//			  }
+//		  }
+//		  System.out.println("222222222");
+	  }
+	  System.out.println("--decide--");
+	  return false;
   }
   
   /*
@@ -42,7 +200,13 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   Map<AssignStmt, String> OutFlowCond;
   int DepthFor = 0;
   public ArrayList<String> methodList;
-  private shapeVector ShapeAnalysis;
+  ValueAnalysis<AggrValue<BasicMatrixValue>> FuncAnalysis;
+  Map<String, Map<String, ValueSet<AggrValue<BasicMatrixValue>>>> VarsAnalysis;
+  Set<String> MyCurrentDefs = new HashSet<>(); //var in the expr should not appear in prior defs
+  Set<AssignStmt> MyCurrentSet = new HashSet<>();
+  Map<AssignStmt, String> MyCurrentCond = new HashMap<>();
+  private BuiltinQuery builtinquery = BuiltinSet.getBuiltinQuery();
+  Set<String> allindex = new HashSet<>();
   
   // (6)
   @Override
@@ -75,8 +239,9 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   
   @Override
   public void caseFunction(Function node){
+//	  System.out.println(node.getAnalysisPrettyPrinted((StructuralAnalysis<?>)FuncAnalysis,true,true));
 	  caseASTNode(node);
-  }
+  }     
   
   @Override
   public void caseScript(Script node) {
@@ -95,33 +260,101 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  //Print("size = " + outFlowSets.size());
   }
   
-  private infoDim ForRange;
   
   private void processForStmt(ForStmt node){
-//	  DepthFor++;
-	  ast.List<Stmt> x = node.getStmts();
 	  String iter =  node.getAssignStmt().getLHS().getVarName(); // iter variable
-	  ForRange = new infoDim(iter);
-	  ForRange.setDim(ShapeAnalysis.getForRange(node.getAssignStmt().getRHS()));
-	  Print("iter = " + iter);
-	  Print("range= " + ForRange.toString());
+	  System.out.println(node.getAssignStmt().getPrettyPrinted());
+	  infoDim ForRange = new infoDim(iter);
+	  ForRange.setDim(getForRange(node.getAssignStmt().getRHS()));
+	  ast.List<Stmt> x = node.getStmts();
 	  for(Stmt a : x){
-		  if (a instanceof AssignStmt){
-			  AssignStmt ta = (AssignStmt)a;
-			  processAssignment(ta, "");
-		  }
-		  else if(a instanceof IfStmt){
-			  processIfStmt((IfStmt)a);
-		  }
-//		  else caseASTNode(node);
-		  else if(a instanceof ForStmt){
-			  processForStmt((ForStmt)a); // goto next for loop
+		  if(a instanceof AssignStmt){
+			  processAssignment((AssignStmt)a, ""); //pass for
 		  }
 	  }
-	  // test(iter, outFlowSets)
-	  PrintA(outFlowSets); //recursive solution
-	  PrintB(OutFlowCond);
-//	  DepthFor--;
+	  System.out.println("-*-*-*-*-Output-*-*-*-*-");
+	  ArrayList<String> tempindex = new ArrayList<String>(allindex);
+	  String commonindex = "";
+	  if(tempindex.size() == 1) commonindex = tempindex.get(0);
+	  for(AssignStmt a : MyCurrentSet){
+//		  System.out.println(genForStmt(a, ForRange));
+		  String oldstring = a.getPrettyPrinted();
+		  Set<String> vars = getExprNames(a);
+		  for(String name : vars){
+			  CharSequence oldkey = name+"("+commonindex+")";
+			  CharSequence newkey = genForVar(name, ForRange);
+			  System.out.println("oldkey = " + oldkey + " ; newkey = " + newkey);
+			  oldstring = oldstring.replace(oldkey, newkey);
+		  }
+		  System.out.println(oldstring); //now is new string
+	  }
+//	  System.out.print(evalName("n"));
+////	  DepthFor++;
+//	  ast.List<Stmt> x = node.getStmts();
+//	  String iter =  node.getAssignStmt().getLHS().getVarName(); // iter variable
+//	  ForRange = new infoDim(iter);
+//	  ForRange.setDim(ShapeAnalysis.getForRange(node.getAssignStmt().getRHS()));
+//	  Print("iter = " + iter);
+//	  Print("range= " + ForRange.toString());
+//	  for(Stmt a : x){
+//		  if (a instanceof AssignStmt){
+//			  AssignStmt ta = (AssignStmt)a;
+//			  processAssignment(ta, "");
+//		  }
+//		  else if(a instanceof IfStmt){
+//			  processIfStmt((IfStmt)a);
+//		  }
+////		  else caseASTNode(node);
+//		  else if(a instanceof ForStmt){
+//			  processForStmt((ForStmt)a); // goto next for loop
+//		  }
+//	  }
+//	  // test(iter, outFlowSets)
+//	  PrintA(outFlowSets); //recursive solution
+//	  PrintB(OutFlowCond);
+////	  DepthFor--;
+  }
+  
+  private String genForVar(String varname, infoDim ForRange) {
+	  String strindex="";
+	  if(builtinquery.isBuiltin(varname)){
+		  strindex = ForRange.genForRange();
+	  }
+	  else{
+		  infoDim varshape = evalName(varname);
+		  System.out.println("shape = " + varshape.toString());
+		  if(!varshape.equals(ForRange)){
+			  strindex = ForRange.genForRange();
+		  }
+	  }
+	  return (strindex.isEmpty()?varname:varname+"("+strindex+")");	
+  }
+  
+  private String genForStmt(ASTNode node, infoDim ForRange) {
+	  String rtn = "";
+	  if(node instanceof ParameterizedExpr){
+		  String varname = ((ParameterizedExpr)node).getVarName();
+		  String strindex="";
+		  if(builtinquery.isBuiltin(varname)){
+			  strindex = ForRange.genForRange();
+		  }
+		  else{
+			  infoDim varshape = evalName(varname);
+			  if(!varshape.equals(ForRange)){
+				  strindex = ForRange.genForRange();
+			  }
+		  }
+		  rtn = (strindex.isEmpty()?varname:varname+"("+strindex+")");
+	  }
+	  else if(node.getNumChild()<2){
+		  rtn = node.getPrettyPrinted();
+	  }
+	  else {
+		  System.out.println(node.getNodeString());
+		  for(int i=0;i<node.getNumChild();i++)
+			  rtn += genForStmt(node.getChild(i),ForRange);
+	  }
+	  return rtn;
   }
   
   @Override
@@ -155,12 +388,32 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  }
   }
   
+  /*
+   * Add range iterator: e.g. 'i'
+   */
   private void processAssignment(AssignStmt node, String ifcondition){
+	  Set<String> rightnames = getExprNames(node.getRHS());
+	  boolean flagvar = true;
+	  for(String rn : rightnames){
+		  if(MyCurrentDefs.contains(rn)) {
+			  flagvar = false; break;
+		  }
+	  }
+	  if(!flagvar) addNoAssignment(node);
+	  
 	  if(node.getLHS() instanceof ParameterizedExpr){
-		  addAssignment(node, ifcondition); // decide flow
 		  //Print(ta.getLHS().getNodeString());
 		  ParameterizedExpr tc = (ParameterizedExpr)node.getLHS();
 		  Print(getExprIndex(tc.getArg(0)));  //then get argument
+		
+		  allindex =  getParameterIndex(node.getRHS());
+		  allindex.addAll(getParameterIndex(node.getLHS()));
+		  if(allindex.size() == 1){ //single index
+			  addAssignment(node, ifcondition); // decide flow
+		  }
+		  else {
+			  addNoAssignment(node);
+		  }
 		  //Print(tc.getVarName());
 	  }
 	  //Print(ta.getPrettyPrinted());
@@ -182,10 +435,32 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  return rtn;
   }
   
+  private Set<String> getParameterIndex(ASTNode node){
+	  Set<String> s = new HashSet<>();
+	  if(node instanceof ParameterizedExpr){
+		  int i = 0; String line = "";
+		  for(Expr e : ((ParameterizedExpr)node).getArgList()){
+			  if(i > 0) line += " ";
+			  line += e.getNodeString();
+			  i++;
+		  }
+		  s.add(line);
+	  }
+	  else {
+		  for(int i=0;i<node.getNumChild();i++){
+			  s.addAll(getParameterIndex(node.getChild(i)));
+		  }
+	  }
+	  return s;
+  }
+  
   private Set<String> getExprNames(ASTNode node){
 	  Set<String> s = new HashSet<>();
 	  if(node instanceof NameExpr){
 		  s.add(node.getVarName());
+	  }
+	  else if(node instanceof ParameterizedExpr){
+		  s.add(((ParameterizedExpr)node).getVarName()); // x(i), only take x 
 	  }
 	  else {
 		  //Print(e.getNumChild());
@@ -208,7 +483,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   /*
    * out = (in + gen) - kill; 
    */
-  private void addAssignment(AssignStmt node, String cond){
+  private void addAssignmentOld(AssignStmt node, String cond){
 	  inFlowSets.put(node, copy(currentInSet));
 	  
 	  Print("current "+ cond + " = " + currentInSet.size());
@@ -221,6 +496,19 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  
 	  outFlowSets.put(node, copy(currentOutSet));
 	  OutFlowCond.put(node, cond);
+  }
+  
+  private void addAssignment(AssignStmt node, String cond){
+	  System.out.println("[add assignment]" + node.getPrettyPrinted());
+	  MyCurrentSet.add(node);
+	  MyCurrentCond.put(node, cond);
+  }
+  
+  private void addNoAssignment(AssignStmt node) {
+	  String v = getExprName(node.getLHS());
+	  if(!v.isEmpty()){
+		  MyCurrentDefs.add(v); // add into set
+	  }
   }
   
   private Set<AssignStmt> gen(AssignStmt node) {
@@ -290,9 +578,9 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  String val = genExprList(pe.getArgList());
 		  if(omit.equals(val)) {
 			  String leftname = pe.getVarName();
-			  if(ShapeAnalysis.isBuiltin(leftname)){
-				  return leftname+"("+ForRange.genForRange()+")";
-			  }
+//		Analysis.isBuiltin(leftname)){
+//				  return leftname+"("+ForRange.genForRange()+")";
+//			  }
 			  return leftname;
 		  }
 	  }
@@ -309,6 +597,114 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  }
 	  return rtn;
   }
+  
+	private infoDim getForRange(Expr arg) {
+		infoDim rtn = new infoDim();
+		if (arg instanceof RangeExpr) {
+			RangeExpr e = (RangeExpr) arg;
+			infoDim lhd = evalExpr(e.getLower());
+			infoDim rhd = evalExpr(e.getUpper());
+			if (lhd.isScalar() && rhd.isScalar()) {
+				Expr e0 = (Expr) (e.getChild(0));
+				Expr e2 = (Expr) (e.getChild(2));
+				String left = e0.getNodeString();
+				String right = e2.getNodeString();
+				ArrayList<Double> r0 = getNameInt(left);  // change constant variable to int
+				ArrayList<Double> r2 = getNameInt(right); // e.g. n = 10; 'n' is replaced by 10
+				boolean f0 = r0.get(0) == 1;
+				boolean f2 = r2.get(0) == 1;
+				if ((e0 instanceof IntLiteralExpr || f0) && (e2 instanceof IntLiteralExpr || f2)) {
+					int v0 = f0 ? (int) (r0.get(1).doubleValue()) : Integer.parseInt(left);
+					int v2 = f2 ? (int) (r2.get(1).doubleValue()) : Integer.parseInt(right);
+					int v = v2 - v0 + 1;
+					rtn.setDim2(1, v);
+				} else if (left.equals("1")) {
+					rtn.setDim2("1", right);
+				} else {
+					String s = right + "-" + left + "1";
+					rtn.setDim2("1", s);
+				}
+			}
+		}
+		return rtn;
+	}
+  
+  infoDim evalExpr(Expr e){
+	  infoDim rtn = new infoDim();
+	  int ChildNum = e.getNumChild();
+	  
+	  if(ChildNum < 2){
+		  if(e instanceof IntLiteralExpr || e instanceof FPLiteralExpr){
+			  rtn.setDim2(1,1);
+		  }
+		  else if(e instanceof StringLiteralExpr){
+			  int v = ((StringLiteralExpr)e).getValue().length();
+			  rtn.setDim2(1, v);
+		  }
+		  else if(e instanceof NameExpr){
+			  String n = ((NameExpr)e).getVarName();
+			  rtn.setDim(evalName(n));
+		  }
+	  }
+	  // else
+	  return rtn;
+  }
+  
+  infoDim evalName(String name){
+	  infoDim rtn = new infoDim(name);
+	  ValueSet<AggrValue<BasicMatrixValue>> namelist = VarsAnalysis.get("demo3").get(name);
+	  if(namelist.size() == 1){
+		  for(AggrValue<BasicMatrixValue> x : namelist){
+			  BasicMatrixValue x0 = (BasicMatrixValue)x;
+			  Shape shape0 = x0.getShape();
+			  System.out.println("evalExpr --> " + shape0.toString());
+			  if(shape0.isScalar()){
+//				  System.out.println(x0.getConstant().getValue());
+				  rtn.setDim2(1, 1);
+			  }
+			  else if(shape0.isConstant()){
+				  java.util.List<DimValue> dims = shape0.getDimensions();
+				  if(dims.size() == 2){
+					  System.out.println("\tfind const shape");
+					  rtn.setDim2(dims.get(0).getIntValue(), dims.get(1).getIntValue());
+				  }
+			  }
+		  }
+	  }
+	  return rtn;
+  }
+  
+  ArrayList<Double> getNameInt(String name){
+	  double f = 0, v = 0;
+	  ArrayList<Double> rtn = new ArrayList<>();
+	  ValueSet<AggrValue<BasicMatrixValue>> namelist = VarsAnalysis.get("demo3").get(name);
+//	  System.out.println("getNameInt = " + name);
+	  if(namelist!=null && namelist.size() == 1){
+		  for(AggrValue<BasicMatrixValue> x : namelist){
+			  BasicMatrixValue x0 = (BasicMatrixValue)x;
+			  Shape shape0 = x0.getShape();
+			  if(shape0.isScalar()){
+				  if(shape0.isConstant()){
+					  v = (double)(x0.getConstant().getValue());
+					  f = 1;
+				  }
+			  }
+		  }
+	  }
+	  rtn.add(f);
+	  rtn.add(v);
+	  return rtn;
+  }
+  
+  String getExprName(Expr e){
+	  String rtn = "";
+	  if(e instanceof NameExpr) rtn = ((NameExpr) e).getName().getVarName();
+	  else if(e instanceof ParameterizedExpr){
+		  rtn = ((ParameterizedExpr)e).getVarName();
+	  }
+	  return rtn;
+  }
+  
 
   private static Program parseOrDie(String path) {
     java.util.List<CompilationProblem> errors = new ArrayList<>();
