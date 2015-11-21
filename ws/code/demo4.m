@@ -1,18 +1,21 @@
-function [res] = demo3()
-	n = 10;
-	x = zeros(1, n);
+function [res] = demo4()
+	tic;
+	n = 50000;
+	val = zeros(1, n);
 	for i = 1:n
-		x(i) = sqrt(i);
+		val(i) = sqrt(0.5 + foo(i, mod(i,2)));
 	end
-	res = foo('xyz');
-	new = res;
-	res = sum(x);
+	%disp(val);
+	res = mean(val);
+	toc;
 end
 
-function [res] = foo(x)
-	w = 2;
-	if x > 10
-		w = 'abc';
+function [res] = foo(x, sign)
+	v = sqrt(x);
+	if (sign == 1)
+		res = v;
+	else
+		res = 1 + v;
 	end
-	res = w;
+	%disp(res);
 end

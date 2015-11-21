@@ -1,0 +1,6 @@
+# this is a comment
+# gitignore manual:
+#   http://git-scm.com/docs/gitignore
+
+# ignore benchmarks
+ws/benchmarks/*
