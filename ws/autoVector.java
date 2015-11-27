@@ -28,9 +28,11 @@ import analysis.*;
 import ast.*;
 import ast.List;
 import ast.ASTNodeAnnotation.Child;
+import matlab.MatlabParser.name_list_return;
 
 import com.google.common.base.Joiner;
 import com.sun.javafx.binding.DoubleConstant;
+import com.sun.org.apache.xpath.internal.operations.Bool;
 import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
 
@@ -47,6 +49,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  currentInSet = newInitialFlow();
 	  currentOutSet= new HashSet<>(currentInSet);
 	  initAnalysis(name);
+	  treeroot = tree;
   }
 	
   public static void main(String[] args) {
@@ -64,7 +67,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //		analysis.methodList = new ArrayList<String>(ShapeAnalysis.getMethodList());
 //		shapeanalysis.printFinal();
 		ast.analyze(analysis); // traverse autoVector
-		// System.out.println(ast.getPrettyPrinted());
+//		System.out.println(ast.getPrettyPrinted());
+		analysis.printWholeNodes();
 	}
 	if(1==0){
 		System.out.println("++++++++");
@@ -208,9 +212,12 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   Map<String, Map<String, ValueSet<AggrValue<BasicMatrixValue>>>> VarsAnalysis;
   Set<String> MyCurrentDefs = new HashSet<>(); //var in the expr should not appear in prior defs
   Set<AssignStmt> MyCurrentSet = new HashSet<>();
-  Map<AssignStmt, String> MyCurrentCond = new HashMap<>();
+  Map<String, Map<Expr, AssignStmt>> MyCurrentCond = new HashMap<>();
   private BuiltinQuery builtinquery = BuiltinSet.getBuiltinQuery();
   Set<String> allindex = new HashSet<>();
+  private ASTNode treeroot;
+//  Map<String, Boolean> MyElseblock = new HashMap<>();
+  String defaultfuncname = "demo5";
   
   // (6)
   @Override
@@ -239,6 +246,10 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	for(int i=0;i<node.getNumChild();i++){
 		node.getChild(i).analyze(this);
 	}
+//	if(node instanceof AssignStmt){
+//		System.out.println("testing ... " + node.getPrettyPrinted());
+//		System.out.println("        ... " + ((AssignStmt)node).getLHS().dumpString());
+//	}
   }
   
   @Override
@@ -251,6 +262,13 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   public void caseScript(Script node) {
 	  caseASTNode(node);
   }
+  
+//  @Override
+//  public void caseStmt(Stmt node) {
+//	  if(!(node instanceof ForStmt)){
+//		  printCodeGen(node.getPrettyPrinted());
+//	  }
+//  }
   
   // main method
   @Override
@@ -271,28 +289,40 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  infoDim ForRange = new infoDim(iter);
 	  ForRange.setDim(getForRange(node.getAssignStmt().getRHS()));
 	  ast.List<Stmt> x = node.getStmts();
+	  int tot = node.getNumChild();
+	  ASTNode parent = node.getParent();
+	  int childindex = parent.getIndexOfChild(node);
 	  for(Stmt a : x){
 		  if(a instanceof AssignStmt){
 			  processAssignment((AssignStmt)a, ""); //pass for
 		  }
 	  }
-	  System.out.println("-*-*-*-*-Output-*-*-*-*-");
+	  System.out.println("-*-*-*-*-Output:for:statement-*-*-*-*-");
 	  ArrayList<String> tempindex = new ArrayList<String>(allindex);
 	  String commonindex = "";
 	  if(tempindex.size() == 1) commonindex = tempindex.get(0);
 	  for(AssignStmt a : MyCurrentSet){
-//		  System.out.println(genForStmt(a, ForRange));
-		  String oldstring = a.getPrettyPrinted();
-		  Set<String> vars = getExprNames(a);
-		  for(String name : vars){
-			  CharSequence oldkey = name+"("+commonindex+")";
-			  CharSequence newkey = genForVar(a, name, ForRange);
-			  System.out.println("oldkey = " + oldkey + " ; newkey = " + newkey);
-			  oldstring = oldstring.replace(oldkey, newkey);
-		  }
-		  System.out.println(oldstring); //now is new string
+//		  System.out.println("commonindex = " + commonindex);
+		  ASTNode newnode = genForVar(a, commonindex, ForRange);
+		  parent.insertChild(newnode, childindex++); //insert before for loop
+//		  printCodeGen(newnode.getPrettyPrinted());  //commonindex=="i"
 	  }
-	  System.out.print(evalName("val"));
+	  if(MyCurrentSet.size() != tot){
+		  for(Stmt a : x){
+//			  if((a instanceof AssignStmt) && MyCurrentCond.containsKey(a)) continue;
+//			  printCodeGen(a.getPrettyPrinted());
+			  if((a instanceof AssignStmt) && MyCurrentSet.contains(a)) {
+				  int myindex = parent.getIndexOfChild(a);
+				  parent.removeChild(myindex); // remove old statements
+			  }
+		  }
+	  }
+	  else {
+		  printCodeGen("for loop is reduced.");
+//		  int childindex = parent.getIndexOfChild(node);
+		  parent.removeChild(childindex); //clean it
+	  }
+	  System.out.print(evalName("val", defaultfuncname));
 ////	  DepthFor++;
 //	  ast.List<Stmt> x = node.getStmts();
 //	  String iter =  node.getAssignStmt().getLHS().getVarName(); // iter variable
@@ -323,35 +353,83 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
    * waiting list....
    *   need rewrite the whole code, getPrettyPrinting
    */
-  private String genForVar(ASTNode node, String varname, infoDim ForRange) {
-	  String strindex="";
-	  String leftindex = "i";
-	  if(node instanceof ParameterizedExpr){
-		  String leftname = ((ParameterizedExpr)node).getVarName();
-		  if(leftname.equals(varname)){
-			  ParameterizedExpr p = (ParameterizedExpr)node;
-			  if(p.getArgList().getNumChild() > 0){
-				  if(p.getArg(0).getNodeString().equals(leftindex)){
-					  System.out.println("xx " + p.getArg(0).getNodeString());
-					  strindex = genForVarOne(varname, ForRange);
-					  if(!strindex.isEmpty()){
-						  if(p.getArgList().getNumChild() == 1)
-							  strindex += ")";
+  private ASTNode genForVar(ASTNode node, String strindex, infoDim ForRange) {
+	  System.out.println("[genForVar] " + node.getPrettyPrinted());
+	  return transformAssignment(node, strindex, ForRange);
+  }
+  
+  private ASTNode transformAssignment(ASTNode node, String keyword, infoDim ForRange){
+	  ASTNode rtn = node.copy();
+//	  System.out.println("[transformAssignment] " + rtn.getNumChild());
+	  for(int i=0;i<node.getNumChild();i++){
+		  ASTNode child = node.getChild(i);
+		  int gonext = 0;
+		  ArrayList<Integer> localindex = new ArrayList<>();
+		  if(child instanceof ParameterizedExpr){
+			  // consider not built-in case
+			  if(child.getNumChild()==2){
+				  ast.List<Expr> parameters = ((ParameterizedExpr) child).getArgList(); // a list
+				  int cnt = 0;
+					for (Expr grandchild : parameters) {
+						if ((grandchild instanceof NameExpr) && grandchild.getVarName().equals(keyword)) {
+							localindex.add(cnt);
+						}
+						cnt++;
+					}
+				  if(parameters.getNumChild()==1 && localindex.size() == 1 && !builtinquery.isBuiltin(child.getVarName())) gonext = 1;
+//				  System.out.println("---: " + gonext + "," + localindex.size() + ","+parameters.dumpString());
+				  
+//				  if(parameters.getNumChild() == 1){
+////					  System.out.println("[transformAssignment] entering");
+//					  ASTNode grandchild = parameters.getChild(0);
+//					  if(grandchild instanceof NameExpr){
+//						  if(grandchild.getVarName().equals(keyword)) {
+//							  gonext = (builtinquery.isBuiltin(child.getVarName()))?1:2;
+//						  }
+//					  }
+////					  System.out.println("gonext = " + gonext + " , " + grandchild.dumpString());
+//				  }
+//				  else {
+//					  
+//				  }
+				  if(gonext != 1 && localindex.size() > 0){
+//					  Expr left = new IntLiteralExpr(new DecIntNumericLiteralValue("1"));
+//					  Expr right= new NameExpr(new Name("n"));
+//					  RangeExpr x = new RangeExpr(left, new Opt(), right);
+//					  ast.List parameters = ((ParameterizedExpr) child).getArgList();
+					  for(int x : localindex){
+						  parameters.setChild(ForRange.getRangeExpr(), x); //update parameters
 					  }
 				  }
+				  
 			  }
-			  System.out.println("[genForVar] " + strindex);
-			  if(!strindex.isEmpty()) return varname + "(" + strindex;
-//			  return (strindex.isEmpty()?varname:varname+"("+strindex+")");
 		  }
-		  for(int i=0;i<node.getNumChild();i++)
-			  return genForVar(node.getChild(i), leftname, ForRange);
+		  
+		  
+		  
+		  if(gonext == 0) rtn.setChild(transformAssignment(child, keyword, ForRange), i);
+		  else if(gonext == 1){
+			  NameExpr x = new NameExpr(new Name(child.getChild(0).getVarName()));
+//			  System.out.println("adding " + x.getPrettyPrinted() + ", " + rtn.dumpString());
+//			  System.out.println("  j = " + rtn.getPrettyPrinted());
+//			  System.out.println("  j = " + rtn.getChild(0).dumpString());
+//			  System.out.println("  j = " + rtn.getChild(1).dumpString());
+			  rtn.setChild(x, i); // update
+//			  System.out.println("---: " + rtn.getPrettyPrinted());
+			  /*if(rtn instanceof AssignStmt)  { // only 0,1
+				  if(i == 0) ((AssignStmt)rtn).setLHS(x);
+				  else ((AssignStmt)rtn).setRHS(x);
+			  }
+			  else {
+//				  rtn.removeChild(i);
+				  rtn.setChild(x, i); // update
+				  System.out.println("---: " + rtn.getPrettyPrinted());
+			  }*/
+//			  System.out.println("  i = " + rtn.getChild(0).dumpString());
+//			  System.out.println("  i = " + rtn.getChild(1).dumpString());
+		  }
 	  }
-	  else {
-		  for(int i=0;i<node.getNumChild();i++)
-			  return genForVar(node.getChild(i), varname, ForRange);
-	  }
-	  return varname;
+	  return rtn;
   }
   
   String genForVarOne(String varname, infoDim ForRange){
@@ -360,7 +438,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  strindex = ForRange.genForRange();
 	  }
 	  else{
-		  infoDim varshape = evalName(varname);
+		  infoDim varshape = evalName(varname, defaultfuncname);
 //		  System.out.println("shape = " + varshape.toString());
 		  if(!varshape.equals(ForRange)){
 			  strindex = ForRange.genForRange();
@@ -378,7 +456,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 			  strindex = ForRange.genForRange();
 		  }
 		  else{
-			  infoDim varshape = evalName(varname);
+			  infoDim varshape = evalName(varname, defaultfuncname);
 			  if(!varshape.equals(ForRange)){
 				  strindex = ForRange.genForRange();
 			  }
@@ -407,32 +485,175 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  Print("entering  processIfStmt: " + node.getNumIfBlock());
 	  ast.List<Expr> CurrentCondList = new ast.List<>();
 	  outFlowSets.clear(); // initial
+	  MyCurrentSet.clear();
+	  MyCurrentCond.clear();
+//	  MyElseblock.clear();
+	  boolean reducable = true;
+	  
+	  Vector<String> leftlist = new Vector<>();
 	  for(IfBlock ifb : node.getIfBlocks()){
-		  Expr CurrentCond = ifb.getCondition(); // get current condition
-		  CurrentCondList.add(CurrentCond);
 		  for(Stmt x : ifb.getStmts()){
 			  if(x instanceof AssignStmt){
-				  processAssignment((AssignStmt)x, CurrentCond.getPrettyPrinted());
+				  leftlist.add(((AssignStmt)(x)).getLHS().getPrettyPrinted());
 			  }
 		  }
 	  }
 	  ElseBlock elsenode = node.getElseBlock();
 	  if(elsenode != null){
-		  String elsecond = genConditionString(CurrentCondList);
 		  for(Stmt x : elsenode.getStmts()){
 			  if(x instanceof AssignStmt){
-				  processAssignment((AssignStmt)x, elsecond);
+				  leftlist.add(((AssignStmt)(x)).getLHS().getPrettyPrinted());
 			  }
 		  }
 	  }
+	  
+	  for(IfBlock ifb : node.getIfBlocks()){
+		  Expr CurrentCond = ifb.getCondition(); // get current condition
+		  CurrentCondList.add(CurrentCond);
+		  Vector<String> oneblock = new Vector<>();
+		  MyCurrentDefs.clear();
+		  for(Stmt x : ifb.getStmts()){
+			  if(x instanceof AssignStmt){
+//				  processAssignment((AssignStmt)x, CurrentCond.getPrettyPrinted());
+				  addAssignmentCond((AssignStmt)x, CurrentCond);
+				  oneblock.add(((AssignStmt)(x)).getLHS().getPrettyPrinted());
+			  }
+			  else reducable = false;
+		  }
+		  Vector<String> remained = new Vector<>(leftlist);
+		  remained.removeAll(oneblock);
+		  if(remained.size() > 0){
+			  for(String name : remained){
+				  NameExpr n = new NameExpr(new Name(name));
+				  addAssignmentCond(new AssignStmt(n, n), CurrentCond);
+			  }
+		  }
+	  }
+	  Expr elseexpr = genConditionExpr(CurrentCondList);
+	  if(elsenode != null){
+//		  String elsecond = genConditionString(CurrentCondList);
+		  CurrentCondList.add(elseexpr);
+//		  String elsecond = elseexpr.getPrettyPrinted();
+		  Vector<String> oneblock = new Vector<>();
+		  MyCurrentDefs.clear();
+		  for(Stmt x : elsenode.getStmts()){
+			  if(x instanceof AssignStmt){
+//				  processAssignment((AssignStmt)x, elsecond);
+				  addAssignmentCond((AssignStmt)x, elseexpr);
+				  oneblock.add(((AssignStmt)(x)).getLHS().getPrettyPrinted());
+			  }
+			  else reducable = false;
+		  }
+		  Vector<String> remained = new Vector<>(leftlist);
+		  remained.removeAll(oneblock);
+		  if(remained.size() > 0){
+			  for(String name : remained){
+				  NameExpr n = new NameExpr(new Name(name));
+				  addAssignmentCond(new AssignStmt(n, n), elseexpr);
+			  }
+		  }
+	  }
+	  else {
+		  // all are remained
+		  for(String name : leftlist){
+			  NameExpr n = new NameExpr(new Name(name));
+			  addAssignmentCond(new AssignStmt(n, n), elseexpr);
+		  }
+	  }
+	  System.out.println("[translating if-else]");
+//	  for(Expr w : CurrentCondList){
+//	  for(AssignStmt w : MyCurrentSet){
+//		  System.out.println("w = " + w.getPrettyPrinted());
+//	  }
+	  
+//	  for(Map.Entry<String, Map<AssignStmt, String>> s : MyCurrentCond.entrySet()){
+//		  System.out.println("left value: " + s.getKey());
+//		  Map<AssignStmt, String> t = s.getValue();
+//		  for(Map.Entry<AssignStmt, String> w : t.entrySet()){
+//			  System.out.println(" node   value: " + w.getKey().getPrettyPrinted());
+//			  System.out.println(" string value: " + w.getValue().getPrettyPrinted());
+//		  }
+//	  }
+	  ASTNode parent = node.getParent();
+	  int myindex = parent.getIndexOfChild(node);
+	  Map<String, Boolean> namelist = new HashMap<>();
+	  for(Map.Entry<String, Map<Expr, AssignStmt>> s : MyCurrentCond.entrySet()){
+		  System.out.println("[processing ifelse] " + s.getKey());
+		  Map<Expr, AssignStmt> t = s.getValue();
+		  AssignStmt newnode = null;
+		  NameExpr leftexpr = new NameExpr(new Name(s.getKey()));
+		  Expr rightexpr = null;
+		  namelist.put(s.getKey(), true);
+		  // create pseudo statement for invisible else block
+//		  if(!MyElseblock.containsKey(s.getKey())){
+//			  ast.List<Expr> TempCondList = new ast.List<>();
+//			  for(Map.Entry<Expr, AssignStmt> w : t.entrySet()){
+//				  TempCondList.add(w.getKey());
+//			  }
+//			  rightexpr = composeIfelseTime(leftexpr, genConditionExpr(TempCondList));
+//		  }
+		  
+		  for(Map.Entry<Expr, AssignStmt> w : t.entrySet()){
+			  Expr curexpr = composeIfelseTime(w.getValue(), w.getKey());
+			  if(rightexpr == null) rightexpr = curexpr;
+			  else {
+				  rightexpr = composeIfelsePlus(rightexpr, curexpr);
+			  }
+		  }
+		  newnode = new AssignStmt(leftexpr, rightexpr); //set LHS and RHS
+		  System.out.println(newnode.getPrettyPrinted());
+		  parent.insertChild(newnode, myindex++);
+	  }
+	  
+	  if(reducable){
+		  // remove entire the if-else block
+		  parent.removeChild(myindex);
+		  System.out.println("warning: if-else has been removed");
+	  }
+	  else {
+		  for(IfBlock ifb : node.getIfBlocks()){
+			  for(Stmt x : ifb.getStmts()){
+				  if((x instanceof AssignStmt) && namelist.containsKey(((AssignStmt)(x)).getLHS().getPrettyPrinted())){
+					  ifb.removeChild(ifb.getIndexOfChild(x));
+				  }
+			  }
+		  }
+		  if(elsenode != null){
+			  int blockindex = node.getIndexOfChild(elsenode);
+			  for(Stmt x : elsenode.getStmts()){
+				  if((x instanceof AssignStmt) && namelist.containsKey(((AssignStmt)(x)).getLHS().getPrettyPrinted())){
+					  elsenode.removeChild(elsenode.getIndexOfChild(x));
+				  }
+			  }
+			  // special case for else block
+			  if(elsenode.getNumChild() == 0){
+				  node.removeChild(blockindex);
+			  }
+		  }
+	  }
+	  System.out.print("[query w] ");
+	  System.out.println(evalName("w", "demo5"));
+  }
+  
+  private Expr composeIfelseTime(AssignStmt node, Expr cond){
+	  return new ETimesExpr(node.getRHS(), cond);
+  }
+  
+  private Expr composeIfelseTime(NameExpr node, Expr cond){
+	  return new ETimesExpr(node, cond);
+  }
+  
+  private Expr composeIfelsePlus(Expr one, Expr two){
+	  return new PlusExpr(one, two);
   }
   
   /*
    * Add range iterator: e.g. 'i'
    */
-  private void processAssignment(AssignStmt node, String ifcondition){
+  private int processAssignment(AssignStmt node, String ifcondition){
 	  Set<String> rightnames = getExprNames(node.getRHS());
 	  boolean flagvar = true;
+	  int rtn = 0;
 	  for(String rn : rightnames){
 		  if(MyCurrentDefs.contains(rn)) {
 			  flagvar = false; break;
@@ -451,6 +672,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  System.out.println("\t"+allindex.toString());
 		  if(allindex.size() == 1){ //single index
 			  addAssignment(node, ifcondition); // decide flow
+			  rtn = 1;
 		  }
 		  else {
 			  addNoAssignment(node);
@@ -462,6 +684,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  //Print("result = " + getExprNames(ra));
 	  //String ne = ((NameExpr)ta.getRHS()).getNodeString();
 	  //Print(ne);
+	  return rtn;
   }
   
   // --- No override functions below
@@ -548,7 +771,6 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   private void addAssignment(AssignStmt node, String cond){
 	  System.out.println("[add assignment]" + node.getPrettyPrinted());
 	  MyCurrentSet.add(node);
-	  MyCurrentCond.put(node, cond);
   }
   
   private void addNoAssignment(AssignStmt node) {
@@ -557,7 +779,31 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  MyCurrentDefs.add(v); // add into set
 	  }
   }
-  
+  /*
+   * clear at the beginning of every block, including the else block
+   */
+	private void addAssignmentCond(AssignStmt node, Expr cond) {
+		Set<String> rightnames = getExprNames(node.getRHS());
+		Vector<String> remained = new Vector<>(MyCurrentDefs);
+		Vector<String> rightvec = new Vector<>(rightnames);
+		remained.retainAll(rightvec); // common element
+		String leftname = node.getLHS().getPrettyPrinted();
+		if (remained.isEmpty()) {
+			if (MyCurrentCond.containsKey(leftname)) {
+				Map<Expr, AssignStmt> oldset = MyCurrentCond.get(leftname);
+				oldset.put(cond, node);
+			} else {
+				Map<Expr, AssignStmt> oldset = new HashMap<>();
+				oldset.put(cond, node);
+				MyCurrentCond.put(leftname, oldset);
+			}
+			// if(elseblock) MyElseblock.put(leftname, true);
+			// node.getLHS().getVarname() --> (node, cond)
+		} else {
+			MyCurrentDefs.add(leftname); //get prior dependencies
+		}
+	}
+
   private Set<AssignStmt> gen(AssignStmt node) {
 	  Set<AssignStmt> s = new HashSet<>();
 	  s.add(node);
@@ -581,6 +827,23 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  }
 	  }
 	  return r;
+  }
+  
+  private Expr genConditionExpr(ast.List<Expr> x){
+	  int len = x.getNumChild();
+	  Expr rtn = null;
+	  if(len == 1){
+		  rtn = new NotExpr(x.getChild(0));
+	  }
+	  else if(len > 1){
+		  Expr andexpr = x.getChild(len-1);
+		  for(int i=len-2;i>=0;i--){
+			  Expr tmp = new AndExpr(x.getChild(i), andexpr);
+			  andexpr = tmp;
+		  }
+		  rtn = new NotExpr(andexpr);
+	  }
+	  return rtn;
   }
   
   private String genConditionString(ast.List<Expr> x){
@@ -693,16 +956,16 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  }
 		  else if(e instanceof NameExpr){
 			  String n = ((NameExpr)e).getVarName();
-			  rtn.setDim(evalName(n));
+			  rtn.setDim(evalName(n, defaultfuncname));
 		  }
 	  }
 	  // else
 	  return rtn;
   }
   
-  infoDim evalName(String name){
+  infoDim evalName(String name, String funcname){
 	  infoDim rtn = new infoDim(name);
-	  ValueSet<AggrValue<BasicMatrixValue>> namelist = VarsAnalysis.get("demo4").get(name);
+	  ValueSet<AggrValue<BasicMatrixValue>> namelist = VarsAnalysis.get(funcname).get(name);
 //	  if(namelist || namelist.size() == 1){
 	  if(namelist.size() == 1){
 		  for(AggrValue<BasicMatrixValue> x : namelist){
@@ -773,6 +1036,11 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  }
 	  return rtn;
   }
+  
+  public void printWholeNodes(){
+	  System.out.println("[printWholeNodes]: ");
+	  System.out.println(treeroot.getPrettyPrinted());
+  }
 
   private static Program parseOrDie(String path) {
     java.util.List<CompilationProblem> errors = new ArrayList<>();
@@ -782,6 +1050,13 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
       System.exit(1);
     }
     return ast;
+  }
+  
+  private int codegenindex = 0;
+  void printCodeGen(String msg){
+	  if(msg.isEmpty()) return;
+	  System.out.println("[code gen "+ codegenindex + "] " + msg);
+	  codegenindex++;
   }
   
   private void PrintA(Map<ASTNode, Set<AssignStmt>> x){

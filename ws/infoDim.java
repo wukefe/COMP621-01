@@ -2,6 +2,15 @@ import java.awt.Dimension;
 
 import org.antlr.runtime.tree.RewriteRuleElementStream;
 
+import ast.ASTNode;
+import ast.Expr;
+import ast.IntLiteralExpr;
+import ast.Name;
+import ast.NameExpr;
+import ast.Opt;
+import ast.RangeExpr;
+import matlab.MatlabParser.row_list_return;
+import natlab.DecIntNumericLiteralValue;
 import sun.security.x509.DeltaCRLIndicatorExtension;
 
 /*
@@ -201,6 +210,20 @@ public class infoDim {
 			for(int i=0;i<rank;i++) tot *= dims[i];
 		}
 		return tot;
+	}
+	
+	public RangeExpr getRangeExpr() {
+		RangeExpr rtn = null;
+		if (status == 1) {
+			Expr left = new IntLiteralExpr(new DecIntNumericLiteralValue("" + dims[0]));
+			Expr right = new NameExpr(new Name("" + dims[1]));
+			rtn = new RangeExpr(left, new Opt(), right);
+		} else if (status == 2) {
+			Expr left = new IntLiteralExpr(new DecIntNumericLiteralValue(dimv[0]));
+			Expr right = new NameExpr(new Name(dimv[1]));
+			rtn = new RangeExpr(left, new Opt(), right);
+		}
+		return rtn;
 	}
 	
 	/*
