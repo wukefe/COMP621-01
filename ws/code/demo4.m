@@ -4,7 +4,6 @@ function [res] = demo4()
 	val = zeros(1, n);
 	for i = 1:n
 		val(i) = sqrt(0.5 + foo(i, mod(i,2)));
-		val(i) = sqrt(i) + 1; 
 	end
 	%disp(val);
 	res = mean(val);
@@ -14,7 +13,6 @@ end
 function [res] = foo(x, sign)
 	v = sqrt(x);
 	if (sign == 1)
-		res = v;
 		res = 10;
 	else
 		res = 1 + v;
