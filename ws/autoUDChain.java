@@ -49,6 +49,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		System.out.println("[changing] old = " + use.getPrettyPrinted());
 		setExprNames(use, def.getLHS().getVarName(), def.getRHS());
 		System.out.println("[changing] new = " + use.getPrettyPrinted());
+		System.out.println("[removing] " + def.getPrettyPrinted());
 		removeNode(def); // remove old one
 	}
 	
@@ -209,7 +210,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		currentOutSet = copy(currentInSet);
 		// out = out - kill
 		Set<AssignStmt> killset = kill(node);
-		processKillSet(killset);
+//		processKillSet(killset);
 		currentOutSet.removeAll(killset);
 		// out = out + gen
 		currentOutSet.addAll(gen(node));
