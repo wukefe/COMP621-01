@@ -2,7 +2,7 @@ function [res] = demo4()
 	tic;
 	n = 50000;
 	val = zeros(1, n);
-	for i = 1:n
+	parfor i = 1:n
 		val(i) = sqrt(0.5 + foo(i, mod(i,2)));
 	end
 	%disp(val);

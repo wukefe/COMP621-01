@@ -67,6 +67,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //		analysis.methodList = new ArrayList<String>(ShapeAnalysis.getMethodList());
 //		shapeanalysis.printFinal();
 		// traverse autoVector
+		autoUDChain aud = new autoUDChain(ast);
+		ast.analyze(aud); // analyze on aud
 		ast.analyze(analysis); // 1st pass
 		ast.analyze(analysis); // 2nd pass
 		autoTrim atm = new autoTrim(ast);
@@ -125,8 +127,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  
 	  String parametern = "DOUBLE&1*1&REAL";
 	  String[] parameters = {parametern};
-	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
-//	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = getListOfInputValues(parameters);
+//	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
+	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = getListOfInputValues(parameters);
 	  ValueFactory<AggrValue<BasicMatrixValue>> factory = new BasicMatrixValueFactory();
 	  FuncAnalysis = new ValueAnalysis<AggrValue<BasicMatrixValue>>(
               callgraph, Args.newInstance(inputValues) , factory);
@@ -243,7 +245,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   Set<String> allindex = new HashSet<>();
   private ASTNode treeroot;
 //  Map<String, Boolean> MyElseblock = new HashMap<>();
-  String defaultfuncname = "demo4";
+  String defaultfuncname = "demo6";
   
   // (6)
   @Override
@@ -307,8 +309,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  // clean flow before going to next loop?
 	  OutFlowCond = new HashMap<>();
 	  //currentInSet = newInitialFlow();
-	  //currentOutSet= new HashSet<>(currentInSet);
-	  
+	  //currentOutSet= new HashSet<>(currentInSet);	  
 	  processForStmt(node);
 	  //Print("size = " + outFlowSets.size());
   }
