@@ -76,9 +76,9 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		ast.analyze(analysis); // 2nd pass
 		analysis.printWholeNodes();
 		System.out.println("going to trim");
-//		autoTrim atm = new autoTrim(ast, analysis.FuncVector); //public?
-//		ast.analyze(atm);      // trim
-		ast.analyze(aud);      // remove redefinitions
+		autoTrim atm = new autoTrim(ast); // remove redefinitions
+		ast.analyze(atm);      // trim
+//		ast.analyze(aud);      // necessary? 
 		autoFunction aft = new autoFunction(analysis.FuncVector);
 		aft.convertNode(ast);
 //		System.out.println(ast.getPrettyPrinted());

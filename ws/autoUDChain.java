@@ -3,11 +3,7 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Map.Entry;
-
-import javax.print.attribute.standard.RequestingUserName;
-
 import java.util.Set;
-
 import analysis.ForwardAnalysis;
 import ast.ASTNode;
 import ast.AssignStmt;
@@ -17,9 +13,9 @@ import ast.Function;
 import ast.NameExpr;
 import ast.ParameterizedExpr;
 import ast.RangeExpr;
-import ast.Stmt;
 import natlab.toolkits.BuiltinSet;
 import natlab.toolkits.path.BuiltinQuery;
+import sun.security.jca.GetInstance.Instance;
 
 public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	public autoUDChain(ASTNode tree) {
@@ -55,15 +51,21 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 //					}
 //				}
 //			}
-			if(use.size() == 0){
-				// defined, but never used
-				removeNode(def);
-				System.out.println(" defined, but never used");
-			}
-			else if(use.size() == 1) {
-				if(udchain.containsKey(use.get(0))){
-					ArrayList<AssignStmt> reversedef = udchain.get(use.get(0));
-					if(isSingleDef(reversedef, def) && !isStmtReduct(use.get(0)) && isReplacable(def, use.get(0))){
+//			System.out.println("def: " + def.getPrettyPrinted());
+//			System.out.println("  use size: " + use.size());
+//			if(use.size() == 0){
+//				// defined, but never used
+//				removeNode(def);
+//				System.out.println(" defined, but never used");
+//				System.out.println(def.getPrettyPrinted());
+//			}
+//			else
+			if(use.size() == 1) {
+				AssignStmt use0 = use.get(0);
+				if(udchain.containsKey(use0)){
+					ArrayList<AssignStmt> reversedef = udchain.get(use0);
+					if(isSingleDef(reversedef, def) && !isStmtReduct(use0)
+							&& isReplacable(def, use0) && isDuplicate(def, use0)){
 						fid = true;
 					}
 				}
@@ -74,25 +76,31 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		}
 	}
 	
+	private boolean isDuplicate(AssignStmt def, AssignStmt use){
+		String leftname = def.getLHS().getVarName();
+//		boolean rightsingle = def.getRHS() instanceof NameExpr; // or integer, float ...
+		return getExprNameA(use, leftname)==1;
+	}
+	
 	/*
 	 * avoid the case:
 	 *   A = ...;
 	 *   B = A(i); --> should not be replaced
 	 */
-	private boolean isReplacable(AssignStmt def, AssignStmt use){
+	public boolean isReplacable(AssignStmt def, AssignStmt use){
 		String leftname = def.getLHS().getVarName();
 //		Set<String> allusename = getExprNames(use);
 //		allusename.removeAll(getExprNamesPar(use));
 		return getExprNamesPar(use).contains(leftname);
 	}
 	
-	private boolean isStmtLeftPara(AssignStmt a){
+	public boolean isStmtLeftPara(AssignStmt a){
 		if(a.getLHS() instanceof ParameterizedExpr)
 			return true;
 		return false;
 	}
 	
-	private boolean isForRange(AssignStmt a){
+	public boolean isForRange(AssignStmt a){
 		if(a.getRHS() instanceof RangeExpr){
 			ASTNode parent = a.getParent();
 			if(parent != null && (parent instanceof ForStmt))
@@ -101,7 +109,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		return false;
 	}
 	
-	private boolean isSingleDef(ArrayList<AssignStmt> def, AssignStmt def0){
+	public boolean isSingleDef(ArrayList<AssignStmt> def, AssignStmt def0){
 		int cnt = 0;
 		String targ = def0.getLHS().getVarName();
 //		System.out.println("targ = " + targ);
@@ -114,7 +122,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		return cnt == 1;
 	}
 	
-	private boolean isStmtReduct(AssignStmt a){
+	public boolean isStmtReduct(AssignStmt a){
 		String leftname = a.getLHS().getVarName();
 		Set<String> rightnames = getExprNames(a.getRHS());
 		return rightnames.contains(leftname);
@@ -131,7 +139,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		removeNode(def); // remove old one
 	}
 	
-	private void removeNode(ASTNode node) {
+	public void removeNode(ASTNode node) {
 		ASTNode parent = node.getParent();
 		if(parent != null) parent.removeChild(parent.getIndexOfChild(node));
 	}
@@ -176,11 +184,11 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 				defstmt.put(a.getLHS().getVarName(), a);
 			}
 			Set<String> stmtuse = getExprNames(((AssignStmt) node).getRHS());// use
-			for(String a : stmtuse){
-				if(builtinquery.isBuiltin(a)){
-					System.out.println("-- find builtin: " + a);
-				}
-			}
+//			for(String a : stmtuse){
+//				if(builtinquery.isBuiltin(a)){
+//					System.out.println("-- find builtin: " + a);
+//				}
+//			}
 //			if(debug) System.out.println("[dump] string = " + ((AssignStmt) node).getRHS().getPrettyPrinted());
 			stmtuse.retainAll(defs); // find used vars in the expr
 			for (String name : stmtuse) {
@@ -195,6 +203,11 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 			pseudoCaseASTNode(node.getChild(i), duchain, udchain);
 		}
 	}
+	
+//	private void chainCreate(Map<AssignStmt, ArrayList<AssignStmt>> chain, AssignStmt from){
+//		ArrayList<AssignStmt> newarray = new ArrayList<>();
+//		chain.put(from, newarray);
+//	}
 	
 	private void chainLink(Map<AssignStmt, ArrayList<AssignStmt>> chain, AssignStmt from, AssignStmt to){
 		if(chain.containsKey(from)){
@@ -241,15 +254,29 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	}
 	
 	/*
+	 * 
+	 */
+	private int getExprNameA(ASTNode node, String targ){
+		int rtn = 0;
+		if(node instanceof NameExpr){
+			rtn = node.getVarName().equals(targ)?1:0;
+		}
+		for(int i=0;i<node.getNumChild();i++){
+			rtn += getExprNameA(node.getChild(i),targ);
+		}
+		return rtn;
+	}
+	
+	/*
 	 * Added function
 	 */
 	private void processKillSet(Set<AssignStmt> s){
 		if(s.size() == 0) return ;
 		for(AssignStmt a : s){
-			ASTNode parent = a.getParent();
-			int index = parent.getIndexOfChild(a);
-			parent.removeChild(index);
-			if(debug) System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted());
+//			ASTNode parent = a.getParent();
+//			int index = parent.getIndexOfChild(a);
+//			parent.removeChild(index);
+			if(debug) System.out.println("[Warning Line "+ a.getStartLine() +" is being removed] " + a.getPrettyPrinted());
 		}
 		if(debug) System.out.println("removed total " + s.size());
 	}

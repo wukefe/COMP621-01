@@ -14,18 +14,13 @@ import ast.MTimesExpr;
 import ast.NameExpr;
 import ast.Stmt;
 
-/*
- * deprecated, not used
- */
-
 public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
-	public autoTrim(ASTNode tree, Map<String, Boolean> vector) {
+	public autoTrim(ASTNode tree) {
 		super(tree);
-		FuncVector = vector;
+		funcs = new autoUDChain(null);
 	}
 	
-	Map<String, Boolean> FuncVector;
-	boolean onefunc = false;
+	autoUDChain funcs = null;
 	// Added functions
 	/*
 	 * StmtReduct:
@@ -33,12 +28,10 @@ public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
 	 *   use: A = A + 1; --> keep both stmts
 	 */
 	private void processKillSet(Set<AssignStmt> s, AssignStmt node){
-		if(s.size() == 0) return ;
+		if(s.size() == 0 || funcs.isStmtReduct(node)) return ;
 		for(AssignStmt a : s){
-			ASTNode parent = a.getParent();
-			int index = parent.getIndexOfChild(a);
-			parent.removeChild(index);
-			System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted());
+			funcs.removeNode(a);
+//			System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted() + "," + funcs.isStmtReduct(a));
 		}
 		System.out.println("removed total " + s.size());
 	}
@@ -74,7 +67,6 @@ public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
 		if(currentOutSet != null) currentOutSet.clear();
 		else currentOutSet = new HashSet<>();
 		String funcname = node.getName().getVarName();
-		onefunc = FuncVector.get(funcname);
 //		System.out.println("entering " + node.getName().getVarName());
 		caseASTNode(node);
 	}
