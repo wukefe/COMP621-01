@@ -1,21 +1,38 @@
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Set;
 
 import analysis.ForwardAnalysis;
 import ast.ASTNode;
 import ast.AssignStmt;
+import ast.EDivExpr;
+import ast.ETimesExpr;
 import ast.Function;
+import ast.MDivExpr;
+import ast.MTimesExpr;
+import ast.NameExpr;
 import ast.Stmt;
 
+/*
+ * deprecated, not used
+ */
+
 public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
-	public autoTrim(ASTNode tree) {
+	public autoTrim(ASTNode tree, Map<String, Boolean> vector) {
 		super(tree);
+		FuncVector = vector;
 	}
 	
+	Map<String, Boolean> FuncVector;
+	boolean onefunc = false;
+	// Added functions
 	/*
-	 * Added function
+	 * StmtReduct:
+	 *   def: A = 0;     --> def should not be deleted
+	 *   use: A = A + 1; --> keep both stmts
 	 */
-	private void processKillSet(Set<AssignStmt> s){
+	private void processKillSet(Set<AssignStmt> s, AssignStmt node){
 		if(s.size() == 0) return ;
 		for(AssignStmt a : s){
 			ASTNode parent = a.getParent();
@@ -25,6 +42,23 @@ public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
 		}
 		System.out.println("removed total " + s.size());
 	}
+
+//	public void travelAllNode(ASTNode node) {
+//		if(node instanceof AssignStmt){
+//			
+//		}
+//		else if(node instanceof Stmt){
+//			Set<AssignStmt> defs = new HashSet<>();
+//			for(int i=0;i<node.getNumChild();i++){
+//				if(node instanceof AssignStmt){
+//					
+//				}
+//			}
+//			for(int i=0;i<node.getNumChild();i++){
+//				travelAllNode(node.getChild(i));
+//			}
+//		}
+//	}
 	
 	@Override
 	public void caseASTNode(ASTNode node) {
@@ -39,6 +73,8 @@ public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
 		else currentInSet = new HashSet<>();
 		if(currentOutSet != null) currentOutSet.clear();
 		else currentOutSet = new HashSet<>();
+		String funcname = node.getName().getVarName();
+		onefunc = FuncVector.get(funcname);
 //		System.out.println("entering " + node.getName().getVarName());
 		caseASTNode(node);
 	}
@@ -79,12 +115,16 @@ public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
 	@Override
 	public void caseAssignStmt(AssignStmt node) {
 		inFlowSets.put(node, copy(currentInSet));
+		
+//		if(onefunc){ // change for functionOK functions
+//			addDot(node);
+//		}
 
 		// out = in
 		currentOutSet = copy(currentInSet);
 		// out = out - kill
 		Set<AssignStmt> killset = kill(node);
-		processKillSet(killset);
+		processKillSet(killset, node);
 		currentOutSet.removeAll(killset);
 		// out = out + gen
 		currentOutSet.addAll(gen(node));

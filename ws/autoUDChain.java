@@ -12,10 +12,14 @@ import analysis.ForwardAnalysis;
 import ast.ASTNode;
 import ast.AssignStmt;
 import ast.Expr;
+import ast.ForStmt;
 import ast.Function;
 import ast.NameExpr;
 import ast.ParameterizedExpr;
+import ast.RangeExpr;
 import ast.Stmt;
+import natlab.toolkits.BuiltinSet;
+import natlab.toolkits.path.BuiltinQuery;
 
 public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	public autoUDChain(ASTNode tree) {
@@ -25,16 +29,41 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	// function -> node -> nodes
 	Map<String, Map<AssignStmt, ArrayList<AssignStmt>>> duchains = new HashMap<>();
 	Map<String, Map<AssignStmt, ArrayList<AssignStmt>>> udchains = new HashMap<>();
+	private boolean debug = true;
+	
+	void init(){
+		duchains = new HashMap<>();
+		udchains = new HashMap<>();
+		debug = false;
+	}
 	
 	private void process(Map<AssignStmt, ArrayList<AssignStmt>> duchain, Map<AssignStmt, ArrayList<AssignStmt>> udchain){
 		for(Entry<AssignStmt, ArrayList<AssignStmt>> everydef : duchain.entrySet()){
 			AssignStmt def = everydef.getKey();
 			ArrayList<AssignStmt> use = everydef.getValue();
 			boolean fid = false;
-			if(use.size() == 1) {
+			if(isForRange(def) || isStmtLeftPara(def)) continue; // skip for range and A(i)=
+//			if(def.getPrettyPrinted().contains("NegNofXd1")){
+//				System.out.println(" def: " + def.getPrettyPrinted());
+//				for(AssignStmt b : use){
+//					System.out.println("  use: " + b.getPrettyPrinted());
+//					System.out.println("  chain: " + udchain.containsKey(b));
+//					ArrayList<AssignStmt> reverseuse0 = udchain.get(use.get(0));
+//					System.out.println("  value: " + reverseuse0.size());
+//					for(AssignStmt c:reverseuse0){
+//						System.out.println("  candiate: " + c.getPrettyPrinted());
+//					}
+//				}
+//			}
+			if(use.size() == 0){
+				// defined, but never used
+				removeNode(def);
+				System.out.println(" defined, but never used");
+			}
+			else if(use.size() == 1) {
 				if(udchain.containsKey(use.get(0))){
-					ArrayList<AssignStmt> reverseuse = udchain.get(use.get(0));
-					if(reverseuse.size() == 1){
+					ArrayList<AssignStmt> reversedef = udchain.get(use.get(0));
+					if(isSingleDef(reversedef, def) && !isStmtReduct(use.get(0)) && isReplacable(def, use.get(0))){
 						fid = true;
 					}
 				}
@@ -45,11 +74,60 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		}
 	}
 	
+	/*
+	 * avoid the case:
+	 *   A = ...;
+	 *   B = A(i); --> should not be replaced
+	 */
+	private boolean isReplacable(AssignStmt def, AssignStmt use){
+		String leftname = def.getLHS().getVarName();
+//		Set<String> allusename = getExprNames(use);
+//		allusename.removeAll(getExprNamesPar(use));
+		return getExprNamesPar(use).contains(leftname);
+	}
+	
+	private boolean isStmtLeftPara(AssignStmt a){
+		if(a.getLHS() instanceof ParameterizedExpr)
+			return true;
+		return false;
+	}
+	
+	private boolean isForRange(AssignStmt a){
+		if(a.getRHS() instanceof RangeExpr){
+			ASTNode parent = a.getParent();
+			if(parent != null && (parent instanceof ForStmt))
+				return true;
+		}
+		return false;
+	}
+	
+	private boolean isSingleDef(ArrayList<AssignStmt> def, AssignStmt def0){
+		int cnt = 0;
+		String targ = def0.getLHS().getVarName();
+//		System.out.println("targ = " + targ);
+		for (AssignStmt a : def) {
+			if (a.getLHS().getVarName().equals(targ)) {
+				cnt++;
+			}
+		}
+//		System.out.println("cnt = " + cnt);
+		return cnt == 1;
+	}
+	
+	private boolean isStmtReduct(AssignStmt a){
+		String leftname = a.getLHS().getVarName();
+		Set<String> rightnames = getExprNames(a.getRHS());
+		return rightnames.contains(leftname);
+	}
+	
 	private void processMerge(AssignStmt def, AssignStmt use) {
-		System.out.println("[changing] old = " + use.getPrettyPrinted());
+		if(debug)
+			System.out.println("[changing] old = " + use.getPrettyPrinted());
 		setExprNames(use, def.getLHS().getVarName(), def.getRHS());
-		System.out.println("[changing] new = " + use.getPrettyPrinted());
-		System.out.println("[removing] " + def.getPrettyPrinted());
+		if(debug){
+			System.out.println("[changing] new = " + use.getPrettyPrinted());
+			System.out.println("[removing] " + def.getPrettyPrinted());
+		}
 		removeNode(def); // remove old one
 	}
 	
@@ -74,14 +152,15 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	private void setUDChains(String funcname, ASTNode root) {
 		Map<AssignStmt, ArrayList<AssignStmt>> duchain = new HashMap<>();
 		Map<AssignStmt, ArrayList<AssignStmt>> udchain = new HashMap<>();
-		System.out.println("[UDchaining] entering " + funcname);
+//		if(debug) System.out.println("[UDchaining] entering " + funcname);
 		pseudoCaseASTNode(root, duchain, udchain);
 		process(duchain, udchain);
 		duchains.put(funcname, duchain);
 		udchains.put(funcname, udchain);
-		System.out.println("[UDchaining] leaving " + funcname);
+//		if(debug) System.out.println("[UDchaining] leaving " + funcname);
 	}
 	
+	private BuiltinQuery builtinquery = BuiltinSet.getBuiltinQuery();
 	private void pseudoCaseASTNode(ASTNode node,
 			Map<AssignStmt, ArrayList<AssignStmt>> duchain,
 			Map<AssignStmt, ArrayList<AssignStmt>> udchain) {
@@ -97,12 +176,17 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 				defstmt.put(a.getLHS().getVarName(), a);
 			}
 			Set<String> stmtuse = getExprNames(((AssignStmt) node).getRHS());// use
-			System.out.println("[dump] string = " + ((AssignStmt) node).getRHS().getPrettyPrinted());
+			for(String a : stmtuse){
+				if(builtinquery.isBuiltin(a)){
+					System.out.println("-- find builtin: " + a);
+				}
+			}
+//			if(debug) System.out.println("[dump] string = " + ((AssignStmt) node).getRHS().getPrettyPrinted());
 			stmtuse.retainAll(defs); // find used vars in the expr
 			for (String name : stmtuse) {
 				AssignStmt targ = defstmt.get(name);
-				System.out.println("[UDchaining] targ = " + targ.getPrettyPrinted());
-				System.out.println("[UDchaining] node = " + node.getPrettyPrinted());
+//				if(debug) System.out.println("[UDchaining] targ = " + targ.getPrettyPrinted());
+//				if(debug) System.out.println("[UDchaining] node = " + node.getPrettyPrinted());
 				chainLink(duchain, targ, (AssignStmt) node); // link: targ -> node
 				chainLink(udchain, (AssignStmt) node, targ); // link: node -> targ
 			}
@@ -135,6 +219,28 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	}
 	
 	/*
+	 * exclude ParameterizedExpr leftname
+	 */
+	private Set<String> getExprNamesPar(ASTNode node){
+		Set<String> rtn = new HashSet<>();
+		if(node instanceof NameExpr){
+			rtn.add(node.getVarName());
+		}
+		else if(node instanceof ParameterizedExpr){
+			ast.List<Expr> remained = ((ParameterizedExpr)node).getArgList();
+			for(int i=0;i<remained.getNumChild();i++){
+				rtn.addAll(getExprNamesPar(remained.getChild(i)));
+			}
+		}
+		else {
+			for(int i=0;i<node.getNumChild();i++){
+				rtn.addAll(getExprNamesPar(node.getChild(i)));
+			}
+		}
+		return rtn;
+	}
+	
+	/*
 	 * Added function
 	 */
 	private void processKillSet(Set<AssignStmt> s){
@@ -143,9 +249,9 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 			ASTNode parent = a.getParent();
 			int index = parent.getIndexOfChild(a);
 			parent.removeChild(index);
-			System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted());
+			if(debug) System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted());
 		}
-		System.out.println("removed total " + s.size());
+		if(debug) System.out.println("removed total " + s.size());
 	}
 	
 	@Override
@@ -185,6 +291,8 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	@Override
 	public Set<AssignStmt> newInitialFlow() {
 		// TODO Auto-generated method stub
+		init(); //initialization
+		System.out.print("coming in newInitialFlow");
 		return new HashSet<>();
 	}
 

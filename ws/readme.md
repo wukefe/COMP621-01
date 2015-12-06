@@ -1,3 +1,13 @@
+## Benchmark Go through
+
+### blackscholes
+
+Not supported list (builtin)
+
+- `strcat`
+- `reshape`
+- 
+
 ## Implementation Questions
 
 transformAssignment
