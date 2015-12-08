@@ -31,7 +31,7 @@ public class autoTrim extends ForwardAnalysis<Set<AssignStmt>> {
 		if(s.size() == 0 || funcs.isStmtReduct(node)) return ;
 		for(AssignStmt a : s){
 			funcs.removeNode(a);
-//			System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted() + "," + funcs.isStmtReduct(a));
+			System.out.println("[Warning Line "+ a.getStartLine() +" is removed] " + a.getPrettyPrinted() + "," + funcs.isStmtReduct(a));
 		}
 		System.out.println("removed total " + s.size());
 	}

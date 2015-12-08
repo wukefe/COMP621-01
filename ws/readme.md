@@ -1,3 +1,19 @@
+## data dependency check
+
+Denote a statement as a candidate of transformable statement as `d`
+Denote variables in LHS as `dl`
+Denote variables in RHS as `dr`
+Denote variables in `d` as `dv`
+
+### If-else block
+
+- Predefine dummy variables for conditions (if there is any statement transformable)
+  - conditionvar1 = "x > 1"
+  - conditionvar2 = "~(x > 1)"
+  - ... goes on
+- 
+
+
 ## Benchmark Go through
 
 ### blackscholes

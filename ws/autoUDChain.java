@@ -25,7 +25,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	// function -> node -> nodes
 	Map<String, Map<AssignStmt, ArrayList<AssignStmt>>> duchains = new HashMap<>();
 	Map<String, Map<AssignStmt, ArrayList<AssignStmt>>> udchains = new HashMap<>();
-	private boolean debug = true;
+	private boolean debug = false;
 	
 	void init(){
 		duchains = new HashMap<>();
@@ -38,7 +38,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 			AssignStmt def = everydef.getKey();
 			ArrayList<AssignStmt> use = everydef.getValue();
 			boolean fid = false;
-			if(isForRange(def) || isStmtLeftPara(def)) continue; // skip for range and A(i)=
+			if(isForRange(def) || isStmtLeftPara(def) || isStmtReduct(def)) continue; // skip for range and A(i)=
 //			if(def.getPrettyPrinted().contains("NegNofXd1")){
 //				System.out.println(" def: " + def.getPrettyPrinted());
 //				for(AssignStmt b : use){
@@ -135,6 +135,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		if(debug){
 			System.out.println("[changing] new = " + use.getPrettyPrinted());
 			System.out.println("[removing] " + def.getPrettyPrinted());
+			System.out.println("  --------  ");
 		}
 		removeNode(def); // remove old one
 	}
@@ -173,17 +174,23 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 			Map<AssignStmt, ArrayList<AssignStmt>> duchain,
 			Map<AssignStmt, ArrayList<AssignStmt>> udchain) {
 		// a(i) = expr; //currently not be considered
-		if((node instanceof AssignStmt) && !(((AssignStmt)node).getLHS() instanceof ParameterizedExpr)){
-//		if(node instanceof AssignStmt) {
-//			System.out.println("[dump] node = " + ((AssignStmt)node).getLHS().dumpString());
+		if((node instanceof AssignStmt)){
+			// System.out.println("[dump] node = " +
+			// ((AssignStmt)node).getLHS().dumpString());
 			Set<AssignStmt> stmts = getInFlowSets().get(node);
 			Set<String> defs = new HashSet<>();
 			Map<String, AssignStmt> defstmt = new HashMap<>();
-			for(AssignStmt a : stmts){
+			for (AssignStmt a : stmts) {
 				defs.add(a.getLHS().getVarName()); // definition
 				defstmt.put(a.getLHS().getVarName(), a);
 			}
-			Set<String> stmtuse = getExprNames(((AssignStmt) node).getRHS());// use
+			Set<String> stmtuse = new HashSet<>();
+			if(((AssignStmt)node).getLHS() instanceof ParameterizedExpr){
+				stmtuse = getExprNames(node); //get all variables
+			}
+			else {
+				stmtuse = getExprNames(((AssignStmt) node).getRHS());// use
+			}
 //			for(String a : stmtuse){
 //				if(builtinquery.isBuiltin(a)){
 //					System.out.println("-- find builtin: " + a);

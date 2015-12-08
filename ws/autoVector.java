@@ -60,6 +60,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		// step 1
 		autoUDChain aud = new autoUDChain(ast);
 		ast.analyze(aud); // analyze on aud
+//		System.out.println(ast.getPrettyPrinted());
 		if(1==1){
 		// step 2
 		autoVector analysis = new autoVector(ast, args[0]);
@@ -74,10 +75,12 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		// traverse autoVector
 		ast.analyze(analysis); // 1st pass
 		ast.analyze(analysis); // 2nd pass
-		analysis.printWholeNodes();
-		System.out.println("going to trim");
+//		analysis.printWholeNodes();
+//		System.out.println("going to trim");
+		if(1==0) {
 		autoTrim atm = new autoTrim(ast); // remove redefinitions
 		ast.analyze(atm);      // trim
+		}
 //		ast.analyze(aud);      // necessary? 
 		autoFunction aft = new autoFunction(analysis.FuncVector);
 		aft.convertNode(ast);
@@ -134,9 +137,13 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  SimpleFunctionCollection callgraph = new SimpleFunctionCollection(env); //contains all functions
 	  BasicTamerTool.setDoIntOk(false);
 	  
+	  // blackscholes:  benchmarks/blackscholes/hanfeng/runBlkSchls_new.m
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String parameterv = "DOUBLE&1*?&REAL";
+//	  String[] parameters = {parametern, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv};
+	  // randMatrixBestResponse_new:  benchmarks/bestResponse/hanfeng/randMatrixBestResponse_new.m
 	  String parametern = "DOUBLE&1*1&REAL";
-	  String parameterv = "DOUBLE&1*?&REAL";
-	  String[] parameters = {parametern, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv};
+	  String[] parameters = {parametern, parametern};
 //	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
 	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = getListOfInputValues(parameters);
 	  ValueFactory<AggrValue<BasicMatrixValue>> factory = new BasicMatrixValueFactory();
@@ -316,7 +323,9 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //	  }
 //  }
   
-  // main method
+  /*
+   *  need a skip
+  */
   @Override
   public void caseForStmt(ForStmt node){
 	  if(skips.contains(node)) return;
@@ -327,6 +336,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  processForStmt(node);
 	  //Print("size = " + outFlowSets.size());
 	  skips.add(node);
+	  caseASTNode(node); //don't forget recursion
   }
   
   
@@ -351,7 +361,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //	  }
 	  for(Stmt a : x){
 		  if(a instanceof AssignStmt){
-			  processAssignment((AssignStmt)a, ""); //pass for
+//			  System.out.println("processing : " + a.getPrettyPrinted());
+			  processAssignment((AssignStmt)a, iter); //pass for
 		  }
 	  }
 	  System.out.println("-*-*-*-*-Output:for:statement-*-*-*-*-");
@@ -438,7 +449,9 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
    */
   private ASTNode genForVar(ASTNode node, String strindex, infoDim ForRange) {
 	  System.out.println("[genForVar] " + node.getPrettyPrinted());
-	  return transformAssignment(node, strindex, ForRange);
+	  ASTNode t = transformAssignment(node, strindex, ForRange);
+	  System.out.println("[genForVar out] " + t.getPrettyPrinted());
+	  return t;
   }
   
   private ASTNode transformAssignment(ASTNode node, String keyword, infoDim ForRange){
@@ -746,7 +759,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   /*
    * Add range iterator: e.g. 'i'
    */
-  private int processAssignment(AssignStmt node, String ifcondition){
+  private int processAssignment(AssignStmt node, String iter){
 	  Set<String> rightnames = getExprNames(node.getRHS());
 	  boolean flagvar = true;
 	  int rtn = 0;
@@ -763,14 +776,16 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //		  Print(getExprIndex(tc.getArg(0)));  //then get argument
 		  System.out.println("Processing ... \n\t" + node.getPrettyPrinted());
 		
-		  allindex =  getParameterIndex(node.getRHS());
-		  allindex.addAll(getParameterIndex(node.getLHS()));
-		  System.out.println("\t"+allindex.toString());
-		  if(allindex.size() == 1){ //single index
-			  addAssignment(node, ifcondition); // decide flow
+		  Set<String> leftindex  = getParameterIndex(node.getLHS(), iter);
+		  Set<String> rightindex = getParameterIndex(node.getRHS(), iter);
+		  allindex.addAll(leftindex);
+		  allindex.addAll(rightindex);
+		  if(allindex.size()==1 && rightindex.size()==1 && leftindex.size() == 1){ //single index
+			  addAssignment(node); // decide flow
 			  rtn = 1;
 		  }
 		  else {
+			  System.out.println("\t NOT added");
 			  addNoAssignment(node);
 		  }
 		  //Print(tc.getVarName());
@@ -795,26 +810,26 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  return rtn;
   }
   
-  private Set<String> getParameterIndex(ASTNode node){
+  private Set<String> getParameterIndex(ASTNode node, String iter){
 	  Set<String> s = new HashSet<>();
-	  String leftindex = "i";
+//	  String leftindex = "i";
 	  if(node instanceof ParameterizedExpr){
 		  for(Expr e : ((ParameterizedExpr)node).getArgList()){
 			  String slot1 = e.getNodeString();
-			  if(slot1.equals(leftindex)){ //only include by match
+			  if(slot1.equals(iter)){ //leftindex //only include by match
 				  s.add(slot1);
 			  }
 			  else {
 				  // go into next slots
 				  for(int i=0;i<node.getNumChild();i++){
-					  s.addAll(getParameterIndex(node.getChild(i)));
+					  s.addAll(getParameterIndex(node.getChild(i),iter));
 				  }
 			  }
 		  }
 	  }
 	  else {
 		  for(int i=0;i<node.getNumChild();i++){
-			  s.addAll(getParameterIndex(node.getChild(i)));
+			  s.addAll(getParameterIndex(node.getChild(i),iter));
 		  }
 	  }
 	  return s;
@@ -864,8 +879,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  OutFlowCond.put(node, cond);
   }
   
-  private void addAssignment(AssignStmt node, String cond){
-	  System.out.println("[add assignment]" + node.getPrettyPrinted());
+  private void addAssignment(AssignStmt node){
+	  System.out.println("[add into list]" + node.getPrettyPrinted());
 	  MyCurrentList.add(node);
   }
   
