@@ -137,13 +137,33 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  SimpleFunctionCollection callgraph = new SimpleFunctionCollection(env); //contains all functions
 	  BasicTamerTool.setDoIntOk(false);
 	  
-	  // blackscholes:  benchmarks/blackscholes/hanfeng/runBlkSchls_new.m
+	  //[1] blackscholes:  benchmarks/blackscholes/hanfeng/runBlkSchls_new.m
 //	  String parametern = "DOUBLE&1*1&REAL";
 //	  String parameterv = "DOUBLE&1*?&REAL";
 //	  String[] parameters = {parametern, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv};
-	  // randMatrixBestResponse_new:  benchmarks/bestResponse/hanfeng/randMatrixBestResponse_new.m
+	  //[2] randMatrixBestResponse_new:  benchmarks/bestResponse/hanfeng/randMatrixBestResponse_new.m
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String[] parameters = {parametern, parametern};
+	  //[3] md_new: benchmarks/md/hanfeng/md_new.m
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String[] parameters = {parametern, parametern, parametern, parametern};
+	  //[4] driver_simulation_nbodyVect_new: benchmarks/nbodyVect/hanfeng/driver_simulation_nbodyVect_new.m
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String[] parameters = {parametern, parametern};
+	  //[5] rch_new: benchmarks/rch/hanfeng/rch_new.m
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String parameterv = "STRING&1*1&REAL";
+	  //[6] tsp_dp1_new: benchmarks/tsp_dp/hanfeng/tsp_dp1_new.m
+//	  String parametern2 = "DOUBLE&2*2&REAL";
+//	  String[] parameters = {parametern2,parametern2};
+	  //[7] mnistclassify_new: benchmarks/MNISTBenchmark/hanfeng/mnistclassify_new.m
+//	  String[] parameters = {};
+	  //[8] keypointsdetectionprogram_new: benchmarks/keypointsdetectionprogram/hanfeng/keypointsdetectionprogram_new.m
+//	  String[] parameters = {};
+	  //[9] gaborFeatures: benchmarks/gaborfilter/hanfeng/gaborFeatures.m
 	  String parametern = "DOUBLE&1*1&REAL";
-	  String[] parameters = {parametern, parametern};
+	  String parametern2 = "DOUBLE&2*2&REAL";
+	  String[] parameters = {parametern2,parametern,parametern};
 //	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
 	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = getListOfInputValues(parameters);
 	  ValueFactory<AggrValue<BasicMatrixValue>> factory = new BasicMatrixValueFactory();
