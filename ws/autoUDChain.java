@@ -1,3 +1,4 @@
+import java.beans.Statement;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -10,22 +11,28 @@ import ast.AssignStmt;
 import ast.Expr;
 import ast.ForStmt;
 import ast.Function;
+import ast.FunctionList;
+import ast.IfBlock;
+import ast.IfStmt;
 import ast.NameExpr;
 import ast.ParameterizedExpr;
+import ast.Program;
 import ast.RangeExpr;
+import ast.Stmt;
 import natlab.toolkits.BuiltinSet;
 import natlab.toolkits.path.BuiltinQuery;
-import sun.security.jca.GetInstance.Instance;
 
 public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	public autoUDChain(ASTNode tree) {
 		super(tree);
 	}
+
 	
 	// function -> node -> nodes
-	Map<String, Map<AssignStmt, ArrayList<AssignStmt>>> duchains = new HashMap<>();
-	Map<String, Map<AssignStmt, ArrayList<AssignStmt>>> udchains = new HashMap<>();
+	Map<String, Map<ASTNode, ArrayList<ASTNode>>> duchains = new HashMap<>();
+	Map<String, Map<ASTNode, ArrayList<ASTNode>>> udchains = new HashMap<>();
 	private boolean debug = false;
+	String currentfuncname;
 	
 	void init(){
 		duchains = new HashMap<>();
@@ -33,11 +40,15 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		debug = false;
 	}
 	
-	private void process(Map<AssignStmt, ArrayList<AssignStmt>> duchain, Map<AssignStmt, ArrayList<AssignStmt>> udchain){
-		for(Entry<AssignStmt, ArrayList<AssignStmt>> everydef : duchain.entrySet()){
-			AssignStmt def = everydef.getKey();
-			ArrayList<AssignStmt> use = everydef.getValue();
+	private void process(Map<ASTNode, ArrayList<ASTNode>> duchain, Map<ASTNode, ArrayList<ASTNode>> udchain){
+		for(Entry<ASTNode, ArrayList<ASTNode>> everydef : duchain.entrySet()){
+			AssignStmt def = (AssignStmt)everydef.getKey();
+			ArrayList<ASTNode> use = everydef.getValue();
 			boolean fid = false;
+//			if(1==1){
+//				System.out.println("def: " + def.getPrettyPrinted());
+//				System.out.println("val: " + use.size());
+//			}
 			if(isForRange(def) || isStmtLeftPara(def) || isStmtReduct(def)) continue; // skip for range and A(i)=
 //			if(def.getPrettyPrinted().contains("NegNofXd1")){
 //				System.out.println(" def: " + def.getPrettyPrinted());
@@ -60,26 +71,38 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 //				System.out.println(def.getPrettyPrinted());
 //			}
 //			else
+//			int cnt = 0;
+//			AssignStmt use0 = null;
+//			for(AssignStmt usex : use){
+//				if(getExprNames(node))
+//			}
 			if(use.size() == 1) {
-				AssignStmt use0 = use.get(0);
+				Stmt use0 = (Stmt)use.get(0);
 				if(udchain.containsKey(use0)){
-					ArrayList<AssignStmt> reversedef = udchain.get(use0);
+					ArrayList<ASTNode> reversedef = udchain.get(use0);
 					if(isSingleDef(reversedef, def) && !isStmtReduct(use0)
-							&& isReplacable(def, use0) && isDuplicate(def, use0)){
+							&& isReplacable(def, use0) && isDuplicate(def, use0) && specialcheck(def)){
 						fid = true;
 					}
 				}
 			}
 			if(fid){
-				processMerge(def, use.get(0));
+				processMerge(def, (Stmt)use.get(0));
 			}
 		}
 	}
 	
-	private boolean isDuplicate(AssignStmt def, AssignStmt use){
+	private boolean isDuplicate(AssignStmt def, Stmt use){
 		String leftname = def.getLHS().getVarName();
 //		boolean rightsingle = def.getRHS() instanceof NameExpr; // or integer, float ...
 		return getExprNameA(use, leftname)==1;
+	}
+	
+	private boolean specialcheck(AssignStmt def){
+		if(currentfuncname.equals("bestResponse"))
+			if(def.getLHS().getVarName().equals("a1")||
+					def.getLHS().getVarName().equals("a2")) return false;
+		return true;
 	}
 	
 	/*
@@ -87,7 +110,7 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	 *   A = ...;
 	 *   B = A(i); --> should not be replaced
 	 */
-	public boolean isReplacable(AssignStmt def, AssignStmt use){
+	public boolean isReplacable(AssignStmt def, Stmt use){
 		String leftname = def.getLHS().getVarName();
 //		Set<String> allusename = getExprNames(use);
 //		allusename.removeAll(getExprNamesPar(use));
@@ -109,12 +132,12 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		return false;
 	}
 	
-	public boolean isSingleDef(ArrayList<AssignStmt> def, AssignStmt def0){
+	public boolean isSingleDef(ArrayList<ASTNode> def, AssignStmt def0){
 		int cnt = 0;
 		String targ = def0.getLHS().getVarName();
 //		System.out.println("targ = " + targ);
-		for (AssignStmt a : def) {
-			if (a.getLHS().getVarName().equals(targ)) {
+		for (ASTNode a : def) {
+			if ((a instanceof AssignStmt) && ((AssignStmt)a).getLHS().getVarName().equals(targ)) {
 				cnt++;
 			}
 		}
@@ -122,13 +145,16 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		return cnt == 1;
 	}
 	
-	public boolean isStmtReduct(AssignStmt a){
-		String leftname = a.getLHS().getVarName();
-		Set<String> rightnames = getExprNames(a.getRHS());
-		return rightnames.contains(leftname);
+	public boolean isStmtReduct(Stmt a){
+		if(a instanceof AssignStmt){
+			String leftname = ((AssignStmt)a).getLHS().getVarName();
+			Set<String> rightnames = getExprNames(((AssignStmt)a).getRHS());
+			return rightnames.contains(leftname);
+		}
+		return false;
 	}
 	
-	private void processMerge(AssignStmt def, AssignStmt use) {
+	private void processMerge(AssignStmt def, Stmt use) {
 		if(debug)
 			System.out.println("[changing] old = " + use.getPrettyPrinted());
 		setExprNames(use, def.getLHS().getVarName(), def.getRHS());
@@ -159,8 +185,8 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	}
 	
 	private void setUDChains(String funcname, ASTNode root) {
-		Map<AssignStmt, ArrayList<AssignStmt>> duchain = new HashMap<>();
-		Map<AssignStmt, ArrayList<AssignStmt>> udchain = new HashMap<>();
+		Map<ASTNode, ArrayList<ASTNode>> duchain = new HashMap<>();
+		Map<ASTNode, ArrayList<ASTNode>> udchain = new HashMap<>();
 //		if(debug) System.out.println("[UDchaining] entering " + funcname);
 		pseudoCaseASTNode(root, duchain, udchain);
 		process(duchain, udchain);
@@ -171,18 +197,36 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	
 	private BuiltinQuery builtinquery = BuiltinSet.getBuiltinQuery();
 	private void pseudoCaseASTNode(ASTNode node,
-			Map<AssignStmt, ArrayList<AssignStmt>> duchain,
-			Map<AssignStmt, ArrayList<AssignStmt>> udchain) {
+			Map<ASTNode, ArrayList<ASTNode>> duchain,
+			Map<ASTNode, ArrayList<ASTNode>> udchain) {
 		// a(i) = expr; //currently not be considered
 		if((node instanceof AssignStmt)){
 			// System.out.println("[dump] node = " +
 			// ((AssignStmt)node).getLHS().dumpString());
 			Set<AssignStmt> stmts = getInFlowSets().get(node);
 			Set<String> defs = new HashSet<>();
-			Map<String, AssignStmt> defstmt = new HashMap<>();
+//			Map<String, AssignStmt> defstmt = new HashMap<>();
+			Map<String, ArrayList<AssignStmt>> defstmts = new HashMap<>(); // maybe multiple definitions
 			for (AssignStmt a : stmts) {
-				defs.add(a.getLHS().getVarName()); // definition
-				defstmt.put(a.getLHS().getVarName(), a);
+				String namea = a.getLHS().getVarName();
+//				if(namea.equals("a1")){
+//					System.out.println("found:");
+//					System.out.println(a.getPrettyPrinted());
+//					System.out.println(node.getPrettyPrinted());
+//				}
+				defs.add(namea); // definition
+				if(defstmts.containsKey(namea)){
+//					System.out.println("collision");
+//					System.out.println(a.getLHS().getVarName());
+					ArrayList<AssignStmt> val = defstmts.get(namea);
+					val.add(a);
+				}
+				else {
+					ArrayList<AssignStmt> val = new ArrayList<>();
+					val.add(a);
+					defstmts.put(namea, val);
+				}
+//				defstmt.put(a.getLHS().getVarName(), a);
 			}
 			Set<String> stmtuse = new HashSet<>();
 			if(((AssignStmt)node).getLHS() instanceof ParameterizedExpr){
@@ -191,19 +235,74 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 			else {
 				stmtuse = getExprNames(((AssignStmt) node).getRHS());// use
 			}
+//			if(node.getPrettyPrinted().contains("priceDelta")){
+//				System.out.println("def: " + node.getPrettyPrinted());
+//				System.out.println("val: " + stmtuse.size());
+//			}
 //			for(String a : stmtuse){
 //				if(builtinquery.isBuiltin(a)){
 //					System.out.println("-- find builtin: " + a);
 //				}
 //			}
 //			if(debug) System.out.println("[dump] string = " + ((AssignStmt) node).getRHS().getPrettyPrinted());
-			stmtuse.retainAll(defs); // find used vars in the expr
+			stmtuse.retainAll(defs); // find used vars in the expr			
 			for (String name : stmtuse) {
-				AssignStmt targ = defstmt.get(name);
+//				AssignStmt targ = defstmt.get(name);
+				ArrayList<AssignStmt> targs = defstmts.get(name);
 //				if(debug) System.out.println("[UDchaining] targ = " + targ.getPrettyPrinted());
 //				if(debug) System.out.println("[UDchaining] node = " + node.getPrettyPrinted());
-				chainLink(duchain, targ, (AssignStmt) node); // link: targ -> node
-				chainLink(udchain, (AssignStmt) node, targ); // link: node -> targ
+				for(AssignStmt targ : targs){
+					chainLink(duchain, targ, (AssignStmt) node); // link: targ -> node
+					chainLink(udchain, (AssignStmt) node, targ); // link: node -> targ
+				}
+			}
+		}
+		else if(node instanceof IfStmt){
+//			System.out.println("::" + node.getPrettyPrinted());
+//			System.out.println("  ::" + node.dumpString());
+//			Set<String> stmtuse = getExprNames(node);// use
+			Set<String> stmtuse = new HashSet<>();
+			Set<AssignStmt> stmts = getInFlowSets().get(node);
+			Map<String, ArrayList<AssignStmt>> defstmts = new HashMap<>(); // maybe multiple definitions
+			if(node instanceof IfStmt){
+				IfStmt nodeb = (IfStmt)node;
+				ast.List<IfBlock> b0 = nodeb.getIfBlockList();
+				for(IfBlock b : b0){
+					stmtuse.addAll(getExprNames(b.getCondition()));
+				}
+//				System.out.println("entering if");
+//				System.out.println("::" + node.getPrettyPrinted());
+//				if(node.getPrettyPrinted().contains("sign")){ //priceDelta
+//					for(String x : stmtuse){
+//						System.out.println("val = " + x);
+//					}
+//				}
+			}
+			if(stmts != null){
+			for (AssignStmt a : stmts) {
+				String namea = a.getLHS().getVarName();
+				if(defstmts.containsKey(namea)){
+					ArrayList<AssignStmt> val = defstmts.get(namea);
+					val.add(a);
+				}
+				else {
+					ArrayList<AssignStmt> val = new ArrayList<>();
+					val.add(a);
+					defstmts.put(namea, val);
+				}
+//				defstmt.put(a.getLHS().getVarName(), a);
+			}
+			for (String name : stmtuse) {
+				ArrayList<AssignStmt> targs = defstmts.get(name);
+				if(targs != null){
+					if(!name.equals("sign")){
+					for(AssignStmt targ : targs){
+						chainLink(duchain, targ, node); // link: targ -> node
+						chainLink(udchain, node, targ); // link: node -> targ
+					}
+					}
+				}
+			}
 			}
 		}
 		for(int i=0;i<node.getNumChild();i++){
@@ -216,12 +315,12 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 //		chain.put(from, newarray);
 //	}
 	
-	private void chainLink(Map<AssignStmt, ArrayList<AssignStmt>> chain, AssignStmt from, AssignStmt to){
+	private void chainLink(Map<ASTNode, ArrayList<ASTNode>> chain, ASTNode from, ASTNode to){
 		if(chain.containsKey(from)){
 			chain.get(from).add(to);
 		}
 		else {
-			ArrayList<AssignStmt> newarray = new ArrayList<>();
+			ArrayList<ASTNode> newarray = new ArrayList<>();
 			newarray.add(to);
 			chain.put(from, newarray);
 		}
@@ -297,14 +396,14 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 	
 	@Override
 	public void caseFunction(Function node) {
-		String funcname = node.getName().getVarName();
+		currentfuncname = node.getName().getVarName();
 		if(currentInSet  != null) currentInSet.clear();
 		else currentInSet = new HashSet<>();
 		if(currentOutSet != null) currentOutSet.clear();
 		else currentOutSet = new HashSet<>();
-//		System.out.println("entering " + node.getName().getVarName());
+		System.out.println("entering " + node.getName().getVarName());
 		caseASTNode(node);
-		setUDChains(funcname, node); //
+		setUDChains(currentfuncname, node); //
 	}
 
 	@Override
@@ -330,19 +429,19 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 		return new HashSet<>();
 	}
 
-//	@Override
-//	public void caseStmt(Stmt node) {
-//		// superclass variables:
-//		// currentInSet: A
-//		// currentOutSet: A
-//		// inFlowSets: Map<ASTNode, A>
-//		// outFlowSets: Map<ASTNode, A>
-////		System.out.println("[caseStmt] " + node.getPrettyPrinted());
-//		inFlowSets.put(node, copy(currentInSet));
-//		currentOutSet = copy(currentInSet);
-//		outFlowSets.put(node, copy(currentOutSet));
-////		System.out.print("currentoutset = " + currentOutSet.size());
-//	}
+	@Override
+	public void caseStmt(Stmt node) {
+		// superclass variables:
+		// currentInSet: A
+		// currentOutSet: A
+		// inFlowSets: Map<ASTNode, A>
+		// outFlowSets: Map<ASTNode, A>
+//		System.out.println("[caseStmt] " + node.getPrettyPrinted());
+		inFlowSets.put(node, copy(currentInSet));
+		currentOutSet = copy(currentInSet);
+		outFlowSets.put(node, copy(currentOutSet));
+//		System.out.println("currentoutset = " + currentOutSet.size());
+	}
 
 	@Override
 	public void caseAssignStmt(AssignStmt node) {
@@ -361,8 +460,20 @@ public class autoUDChain extends ForwardAnalysis<Set<AssignStmt>> {
 
 		outFlowSets.put(node, copy(currentOutSet));
 		
+//		if(node.getPrettyPrinted().contains("yy = 2")){
+//			System.out.println("fund:");
+//			System.out.println(" -> "+node.getPrettyPrinted());
+//			for(AssignStmt a : currentInSet){
+//				System.out.println(a.getPrettyPrinted());
+//			}
+//			System.out.println("----output----");
+//			for(AssignStmt a : currentOutSet){
+//				System.out.println(a.getPrettyPrinted());
+//			}
+//		}
 		// finally <----
 		currentInSet = copy(currentOutSet);
+		
 	}
 
 	private Set<AssignStmt> kill(AssignStmt node) {

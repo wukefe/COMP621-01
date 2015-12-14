@@ -1,22 +1,21 @@
+import java.io.FileNotFoundException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.util.*;
 import natlab.*;
 import natlab.tame.BasicTamerTool;
 import natlab.tame.callgraph.SimpleFunctionCollection;
 import natlab.tame.classes.reference.PrimitiveClassReference;
-import natlab.tame.interproceduralAnalysis.InterproceduralAnalysis;
 import natlab.tame.interproceduralAnalysis.InterproceduralAnalysisNode;
 import natlab.tame.valueanalysis.IntraproceduralValueAnalysis;
 import natlab.tame.valueanalysis.ValueAnalysis;
 import natlab.tame.valueanalysis.ValueFlowMap;
 import natlab.tame.valueanalysis.ValueSet;
 import natlab.tame.valueanalysis.aggrvalue.AggrValue;
-import natlab.tame.valueanalysis.aggrvalue.AggrValueFactory;
 import natlab.tame.valueanalysis.basicmatrix.BasicMatrixValue;
 import natlab.tame.valueanalysis.basicmatrix.BasicMatrixValueFactory;
-import natlab.tame.valueanalysis.components.isComplex.isComplexInfoFactory;
 import natlab.tame.valueanalysis.components.shape.DimValue;
 import natlab.tame.valueanalysis.components.shape.Shape;
-import natlab.tame.valueanalysis.components.shape.ShapePropagator;
 import natlab.tame.valueanalysis.value.ValueFactory;
 import natlab.tame.valueanalysis.value.Args;
 import natlab.tame.valueanalysis.value.Res;
@@ -27,13 +26,8 @@ import natlab.toolkits.path.FileEnvironment;
 import analysis.*;
 import ast.*;
 import ast.List;
-import ast.ASTNodeAnnotation.Child;
-import matlab.MatlabParser.name_list_return;
 
 import com.google.common.base.Joiner;
-import com.sun.javafx.binding.DoubleConstant;
-import com.sun.org.apache.xpath.internal.operations.Bool;
-import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
 
 
 /*
@@ -44,26 +38,30 @@ import com.sun.xml.internal.bind.v2.runtime.unmarshaller.XsiNilLoader.Array;
  */
 
 public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
-  public autoVector(ASTNode tree, String name){
+  public autoVector(ASTNode tree, String name, boolean genparfor, int par){
 	  super(tree);
 	  currentInSet = newInitialFlow();
 	  currentOutSet= new HashSet<>(currentInSet);
 	  treeroot = tree;
+	  isparfor = genparfor;
+	  parameteropt = par; // parameter option
 	  initAnalysis(name);
   }
 	
   public static void main(String[] args) {
     // Parse the contents of args[0]
     // (If it doesn't parse, abort)
-	if(args.length > 0){
+	if(args.length == 4){
 		Program ast = parseOrDie(args[0]);
+		boolean genparfor = args[2].equals("1");
+		int par = Integer.parseInt(args[3]);
 		// step 1
 		autoUDChain aud = new autoUDChain(ast);
 		ast.analyze(aud); // analyze on aud
 //		System.out.println(ast.getPrettyPrinted());
 		if(1==1){
 		// step 2
-		autoVector analysis = new autoVector(ast, args[0]);
+		autoVector analysis = new autoVector(ast, args[0], genparfor, par);
 //		analysis.analyze();
 		// get function list
 //		methodVector mv = new methodVector();
@@ -73,11 +71,13 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //		analysis.methodList = new ArrayList<String>(ShapeAnalysis.getMethodList());
 //		shapeanalysis.printFinal();
 		// traverse autoVector
+		System.out.println("1st pass");
 		ast.analyze(analysis); // 1st pass
+		System.out.println("2nd pass");
 		ast.analyze(analysis); // 2nd pass
-//		analysis.printWholeNodes();
+//		analysis.printWholeNodes(args[1], false);
 //		System.out.println("going to trim");
-		if(1==0) {
+		if(!genparfor && !specialcheck(args[0])) {
 		autoTrim atm = new autoTrim(ast); // remove redefinitions
 		ast.analyze(atm);      // trim
 		}
@@ -85,8 +85,12 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		autoFunction aft = new autoFunction(analysis.FuncVector);
 		aft.convertNode(ast);
 //		System.out.println(ast.getPrettyPrinted());
-		analysis.printWholeNodes();
+		analysis.printWholeNodes(args[1], true); //save to file
+//		analysis.printWholeNodes(args[1], false); //print
 		}
+	}
+	else {
+		System.out.println("INCORRECT COMMAND \n java -cp . autoVector <inputfile.m> <outputfile.m> <parfor_flag> <parameter_flag>");
 	}
 	if(1==0){
 		System.out.println("++++++++");
@@ -137,13 +141,21 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  SimpleFunctionCollection callgraph = new SimpleFunctionCollection(env); //contains all functions
 	  BasicTamerTool.setDoIntOk(false);
 	  
+	  String[] parameters = null;
+	  
 	  //[1] blackscholes:  benchmarks/blackscholes/hanfeng/runBlkSchls_new.m
-//	  String parametern = "DOUBLE&1*1&REAL";
-//	  String parameterv = "DOUBLE&1*?&REAL";
-//	  String[] parameters = {parametern, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv};
+	  if(parameteropt == 0){
+		  String parametern = "DOUBLE&1*1&REAL";
+		  String parameterv = "DOUBLE&1*?&REAL";
+		  String[] parameters0 = {parametern, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv, parameterv};
+		  parameters = parameters0;
+	  }
 	  //[2] randMatrixBestResponse_new:  benchmarks/bestResponse/hanfeng/randMatrixBestResponse_new.m
-//	  String parametern = "DOUBLE&1*1&REAL";
-//	  String[] parameters = {parametern, parametern};
+	  if(parameteropt == 1){
+		  String parametern = "DOUBLE&1*1&REAL";
+		  String[] parameters0 = {parametern, parametern};
+		  parameters = parameters0;
+	  }
 	  //[3] md_new: benchmarks/md/hanfeng/md_new.m
 //	  String parametern = "DOUBLE&1*1&REAL";
 //	  String[] parameters = {parametern, parametern, parametern, parametern};
@@ -161,10 +173,34 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  //[8] keypointsdetectionprogram_new: benchmarks/keypointsdetectionprogram/hanfeng/keypointsdetectionprogram_new.m
 //	  String[] parameters = {};
 	  //[9] gaborFeatures: benchmarks/gaborfilter/hanfeng/gaborFeatures.m
-	  String parametern = "DOUBLE&1*1&REAL";
-	  String parametern2 = "DOUBLE&2*2&REAL";
-	  String[] parameters = {parametern2,parametern,parametern};
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String parametern2 = "DOUBLE&2*2&REAL";
+//	  String[] parameters = {parametern2,parametern,parametern};
+	  //[10] kmeans: benchmarks/kmeans/hanfeng/litekmeans_new.m
+//	  String parameterv = "DOUBLE&1*?&REAL";
+//	  String parametern2 = "DOUBLE&2*2&REAL";
+//	  String[] parameters = {parametern2,parameterv};
+	  //[11] clll: benchmarks/clll/hanfeng/CLLL_new.m
+//	  String parameterx2 = "COMPLEX&2*2&REAL";
+//	  String parameterx2 = "DOUBLE&2*2&REAL";
+//	  String[] parameters = {parameterx2};
 //	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = new ArrayList<>();
+	  //------------------------OStrich Benchmarks---------------------------------------
+	  //[1] nqueens: mybenchmarks/nqueens/nqueen_cpu_new.m
+//	  String parametern = "DOUBLE&1*1&REAL";
+//	  String[] parameters = {parametern};
+	  //------------------------Micro benchmarks-----------------------------------------
+	  //[1] micro1
+	  if(parameteropt == 2){
+		  String parametern = "DOUBLE&1*1&REAL";
+		  String[] parameters0 = {parametern};
+		  parameters = parameters0;
+	  }
+	  if(parameteropt == 3){
+		  String parametern = "DOUBLE&1*1&REAL"; //vector
+		  String[] parameters0 = {parametern};
+		  parameters = parameters0;
+	  }
 	  ArrayList<AggrValue<BasicMatrixValue>> inputValues = getListOfInputValues(parameters);
 	  ValueFactory<AggrValue<BasicMatrixValue>> factory = new BasicMatrixValueFactory();
 	  FuncAnalysis = new ValueAnalysis<AggrValue<BasicMatrixValue>>(
@@ -285,6 +321,8 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //  String defaultfuncname = "demo6"; //--> currentfuncname
   private String currentfuncname = "";
   Set<ASTNode> skips = new HashSet<>();
+  boolean isparfor = false;
+  int parameteropt = 0;
   
   // (6)
   @Override
@@ -366,7 +404,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  infoDim ForRange = new infoDim(iter);
 	  ForRange.setDim(getForRange(node.getAssignStmt().getRHS()));
 	  ast.List<Stmt> x =  node.getStmtList(); //node.getStmts();
-	  int tot = node.getNumChild();
+	  int tot = node.getStmtList().getNumChild(); //node.getNumChild();
 	  ASTNode parent = node.getParent();
 	  int childindex = parent.getIndexOfChild(node);
 	  //different between x and node
@@ -386,16 +424,32 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  }
 	  }
 	  System.out.println("-*-*-*-*-Output:for:statement-*-*-*-*-");
-	  ArrayList<String> tempindex = new ArrayList<String>(allindex);
-	  String commonindex = "";
-	  if(tempindex.size() == 1) commonindex = tempindex.get(0);
-	  for(AssignStmt a : MyCurrentList){
-//		  System.out.println("commonindex = " + commonindex);
-		  ASTNode newnode = genForVar(a, commonindex, ForRange);
-		  parent.insertChild(newnode, childindex++); //insert before for loop
-		  System.out.println("childindex: " + childindex + ", size = " + MyCurrentList.size());
-//		  printCodeGen(newnode.getPrettyPrinted());  //commonindex=="i"
+	  if(!isparfor){
+		  ArrayList<String> tempindex = new ArrayList<String>(allindex);
+		  String commonindex = "";
+		  if(tempindex.size() == 1) commonindex = tempindex.get(0);
+		  for(AssignStmt a : MyCurrentList){
+	//		  System.out.println("commonindex = " + commonindex);
+			  ASTNode newnode = genForVar(a, commonindex, ForRange);
+			  parent.insertChild(newnode, childindex++); //insert before for loop
+			  System.out.println("childindex: " + childindex + ", size = " + MyCurrentList.size());
+	//		  printCodeGen(newnode.getPrettyPrinted());  //commonindex=="i"
+		  }
 	  }
+	  else { // generate parfor code
+		  ast.List<Stmt> stmts = new ast.List<>();
+		  for(AssignStmt a : MyCurrentList){
+			  stmts.add(a);
+		  }
+		  if(stmts.getNumChild() > 0){
+			  ForStmt newforstmt = new ForStmt(node.getAssignStmt(), stmts);
+			  newforstmt.setisParfor(true);
+			  parent.insertChild(newforstmt, childindex++);
+			  skips.add(newforstmt);
+		  }
+	  }
+//	  System.out.println("debuggin1 : " + MyCurrentList.size()  + "; " + tot + "; " + node.getPrettyPrinted());
+//	  System.out.println("debuggin2 : " + node.getStmtList().getNumChild());
 //	  System.out.println("myparent: " + parent.dumpString());
 //	  System.out.println("check: " + MyCurrentList.size() + " != " + tot);
 	  if(MyCurrentList.size() != tot){
@@ -612,6 +666,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
   
   private void processIfStmt(IfStmt node){
 	  Print("entering  processIfStmt: " + node.getNumIfBlock());
+	  System.out.println(node.getPrettyPrinted());
 	  ast.List<Expr> CurrentCondList = new ast.List<>();
 	  outFlowSets.clear(); // initial
 	  MyCurrentList.clear();
@@ -619,13 +674,19 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 //	  MyElseblock.clear();
 	  boolean reducable = true;
 	  
+	  int cnt = 0; boolean randcase = false;
 	  Vector<String> leftlist = new Vector<>();
 	  for(IfBlock ifb : node.getIfBlocks()){
+		  Set<String> names = getExprNames(ifb.getCondition());
+		  if(names.contains("rand")){ //random
+			  if(cnt != 0) randcase = true; //special case
+		  }
 		  for(Stmt x : ifb.getStmts()){
 			  if(x instanceof AssignStmt){
 				  leftlist.add(((AssignStmt)(x)).getLHS().getPrettyPrinted());
 			  }
 		  }
+		  cnt ++;
 	  }
 	  ElseBlock elsenode = node.getElseBlock();
 	  if(elsenode != null){
@@ -636,9 +697,18 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 		  }
 	  }
 	  
+	  if(randcase){
+		  System.out.println("sorry, rand is very randome");
+		  return;
+	  }
+	  
+	  cnt = 0;
 	  for(IfBlock ifb : node.getIfBlocks()){
-		  Expr CurrentCond = ifb.getCondition(); // get current condition
+//		  Expr CurrentCond = ifb.getCondition(); // get current condition
+		  Expr CurrentCond = new NameExpr(new Name("ifcond"+cnt));
+		  AssignStmt currentass = genTempExpr(CurrentCond, genifCondExpr(CurrentCondList, ifb.getCondition()));
 		  CurrentCondList.add(CurrentCond);
+		  insertConditionExpr(currentass, node); //insert in front of ifblock
 		  Vector<String> oneblock = new Vector<>();
 		  MyCurrentDefs.clear();
 		  for(Stmt x : ifb.getStmts()){
@@ -657,8 +727,11 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 				  addAssignmentCond(new AssignStmt(n, n), CurrentCond);
 			  }
 		  }
+		  cnt ++;
 	  }
-	  Expr elseexpr = genConditionExpr(CurrentCondList);
+	  Expr elseexpr = new NameExpr(new Name("elsecond"));
+	  AssignStmt elseass = genTempExpr(elseexpr, genConditionExpr(CurrentCondList));
+	  insertConditionExpr(elseass, node); //insert before
 	  if(elsenode != null){
 //		  String elsecond = genConditionString(CurrentCondList);
 		  CurrentCondList.add(elseexpr);
@@ -741,17 +814,19 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  }
 	  else {
 		  for(IfBlock ifb : node.getIfBlocks()){
-			  for(Stmt x : ifb.getStmts()){
+			  ast.List<Stmt> ifblist = ifb.getStmts();
+			  for(Stmt x : ifblist){
 				  if((x instanceof AssignStmt) && namelist.containsKey(((AssignStmt)(x)).getLHS().getPrettyPrinted())){
-					  ifb.removeChild(ifb.getIndexOfChild(x));
+					  ifblist.removeChild(ifblist.getIndexOfChild(x));
 				  }
 			  }
 		  }
 		  if(elsenode != null){
 			  int blockindex = node.getIndexOfChild(elsenode);
-			  for(Stmt x : elsenode.getStmts()){
+			  ast.List<Stmt> elsenodelist = elsenode.getStmts();
+			  for(Stmt x : elsenodelist){
 				  if((x instanceof AssignStmt) && namelist.containsKey(((AssignStmt)(x)).getLHS().getPrettyPrinted())){
-					  elsenode.removeChild(elsenode.getIndexOfChild(x));
+					  elsenodelist.removeChild(elsenodelist.getIndexOfChild(x));
 				  }
 			  }
 			  // special case for else block
@@ -960,6 +1035,34 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  return r;
   }
   
+  /*
+   * insert temp assignment expr before ifelse block
+   */
+  private void insertConditionExpr(AssignStmt x, ASTNode ifnode){
+	  ASTNode parent = ifnode.getParent();
+	  parent.insertChild(x, parent.getIndexOfChild(ifnode));
+	  skips.add(x);
+  }
+  
+  /*
+   * return AssignStmt
+   */
+  private AssignStmt genTempExpr(Expr name, Expr x){
+	  return new AssignStmt(name, x);
+  }
+  
+  private Expr genifCondExpr(ast.List<Expr> x, Expr newx){
+	  int len = x.getNumChild();
+	  Expr rtn = null;
+	  if(len == 0){
+		  rtn = newx;
+	  }
+	  else {
+		  rtn = new AndExpr(genConditionExpr(x), newx);
+	  }
+	  return rtn;
+  }
+  
   private Expr genConditionExpr(ast.List<Expr> x){
 	  int len = x.getNumChild();
 	  Expr rtn = null;
@@ -969,7 +1072,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  else if(len > 1){
 		  Expr andexpr = x.getChild(len-1);
 		  for(int i=len-2;i>=0;i--){
-			  Expr tmp = new AndExpr(x.getChild(i), andexpr);
+			  Expr tmp = new OrExpr(x.getChild(i), andexpr); //should be or
 			  andexpr = tmp;
 		  }
 		  rtn = new NotExpr(andexpr);
@@ -981,7 +1084,7 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  String str = "~";
 	  int cnt = 0;
 	  for(Expr a : x){
-		  if(cnt > 0) str += " & ";
+		  if(cnt > 0) str += " | "; //should be or
 		  str += a.getPrettyPrinted();
 		  cnt ++;
 	  }
@@ -1161,6 +1264,10 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  return true;
   }
   
+  static boolean specialcheck(String s){
+	  return (s.contains("Response") || s.contains("BlkSchls")); 
+  }
+  
   void updateFuncVector(String funcname, boolean flag){
 	  FuncVector.put(funcname, flag);
 //	  if(funcname.equals("foo")){
@@ -1210,9 +1317,27 @@ public class autoVector extends ForwardAnalysis<Set<AssignStmt>> {
 	  return rtn;
   }
   
-  public void printWholeNodes(){
-	  System.out.println("[printWholeNodes]: ");
-	  System.out.println(treeroot.getPrettyPrinted());
+  public void printWholeNodes(String filename, boolean opt){
+	  if(opt){
+			PrintWriter writer = null;
+			try {
+				writer = new PrintWriter(filename, "UTF-8");
+				writer.println(treeroot.getPrettyPrinted());
+			} catch (FileNotFoundException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} catch (UnsupportedEncodingException e) {
+				// TODO Auto-generated catch block
+				e.printStackTrace();
+			} finally {
+				writer.close();
+				System.out.println("[Successful] " + filename + " has been written.");
+			}
+	  }
+	  else {
+		  System.out.println("[printWholeNodes]: ");
+		  System.out.println(treeroot.getPrettyPrinted());
+	  }
   }
 
   private static Program parseOrDie(String path) {

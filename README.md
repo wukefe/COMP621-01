@@ -10,8 +10,23 @@ The details of the note for project development can be found in the folder `ws` 
 - **Project proposal** on November 4, 2015 (Submitted)
 - **1st project update** on November 13, 2015 (Submitted)
 - **2nd project update** on November 20, 2015 (Submitted)
-- **Project presentation** on December 2, 2015
-- **Next update...**
+- **Project presentation** on December 2, 2015 (Submitted)
+- **Final project report** on December 14, 2015 (Submitted)
+
+## How to reproduce experiments in the final report
+
+There are two ways.
+
+- Eclipse:
+  + Import the whole project into Eclipse
+  + Find command lines in [commands.txt](ws/commands.txt)
+  + Put each command into |Run Configurations| -> |Arguments| as arguments
+- Command lines:
+  + Going to test on Ubuntu
+
+After code is generated in the folder mybenchmark, it is better to read the `ReadMe.md` file to understand the usage of each benchamrk.
+
+If you find any problem about the experiments, please send me email directly.
 
 ## To-do lists
 

@@ -44,8 +44,10 @@ public class autoFunction {
 //				System.exit(1);
 //			}
 //		}
-		for(int i=0;i<node.getNumChild();i++){
-			convertNode(node.getChild(i));
+		if(node!=null){
+			for(int i=0;i<node.getNumChild();i++){
+				convertNode(node.getChild(i));
+			}
 		}
 	}
 	

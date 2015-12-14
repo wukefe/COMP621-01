@@ -1,0 +1,58 @@
+function [elapsedTime] = runBlkSchls_new(numOptions, otype, sptprice, strike, rate, volatility, otime, DGrefval)
+  numError = 0;
+  ERR_CHK = 0;
+  writeOut = 0;
+% pass shape information
+% otype      = reshape(otype      ,1,numOptions);
+% sptprice   = reshape(sptprice   ,1,numOptions);
+% strike     = reshape(strike     ,1,numOptions);
+% rate       = reshape(rate       ,1,numOptions);
+% volatility = reshape(volatility ,1,numOptions);
+% otime      = reshape(otime      ,1,numOptions);
+% DGrefval   = reshape(DGrefval   ,1,numOptions);
+  tic;
+  prices = BlkSchls(sptprice, strike, rate, volatility, otime, otype, 0);
+  for i = (1 : numOptions)
+    if (ERR_CHK == 1)
+      priceDelta = (DGrefval(i) - prices(i));
+      if (priceDelta >= 1e-5)
+% fprintf('error at %d\n',i);
+        numError = (numError + 1);
+      end
+    end
+  end
+  elapsedTime = toc;
+% if writeOut == 1
+% fprintf('elapsed time is %f s\n',elapsedTime);
+% WritePrice(prices, strcat('output_runBlkSchls_',char(fileNames(opt))));
+% end
+% if ERR_CHK == 1
+% fprintf('total error number is %d\n',numError);
+% end
+end
+function [OptionPrice] = BlkSchls(sptprice, strike, rate, volatility, time, otype, timet)
+  xStockPrice = sptprice;
+  xStrikePrice = strike;
+  xVolatility = volatility;
+  xTime = time;
+  xDen = (xVolatility .* sqrt(xTime));
+  xD1 = ((((rate + ((xVolatility .* xVolatility) .* 0.5)) .* xTime) + log((sptprice ./ strike))) ./ xDen);
+  NofXd1 = CNDF(xD1);
+  NofXd2 = CNDF((xD1 - xDen));
+  FutureValueX = (strike .* exp(((-rate) .* time)));
+  OptionPrice = ((((sptprice .* NofXd1) - (FutureValueX .* NofXd2)) .* (otype == 0)) + (((FutureValueX .* (1.0 - NofXd2)) - (sptprice .* (1.0 - NofXd1))) .* (~(otype == 0))));
+end
+function [OutputX] = CNDF(InputX)
+  sign = ((1 .* (InputX < 0)) + (0 .* (~(InputX < 0))));
+  InputX = (((-InputX) .* (InputX < 0)) + (InputX .* (~(InputX < 0))));
+  xK2 = (1 ./ (1 + (0.2316419 .* InputX)));
+  xK2_2 = (xK2 .* xK2);
+  xK2_3 = (xK2_2 .* xK2);
+  xK2_4 = (xK2_3 .* xK2);
+  xLocal_2 = (xK2_2 .* (-0.356563782));
+  xLocal_2 = (xLocal_2 + xLocal_3);
+  xLocal_2 = (xLocal_2 + xLocal_3);
+  xLocal_3 = ((xK2_4 .* xK2) .* 1.330274429);
+  OutputX = (1.0 - (((xLocal_2 + xLocal_3) + (xK2 .* 0.319381530)) .* (exp((((-0.5) .* InputX) .* InputX)) .* 0.39894228040143270286)));
+  OutputX = (((1.0 - OutputX) .* sign) + (OutputX .* (~sign)));
+end

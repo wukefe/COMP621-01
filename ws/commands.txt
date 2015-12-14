@@ -1,0 +1,12 @@
+mybenchmarks/blackscholes/runBlkSchls_new.m mybenchmarks/blackscholes/runBlkSchls_vector.m 0 0
+mybenchmarks/blackscholes/runBlkSchls_new.m mybenchmarks/blackscholes/runBlkSchls_parfor.m 1 0
+
+mybenchmarks/bestResponse/randMatrixBestResponse_new.m mybenchmarks/bestResponse/randMatrixBestResponse_vector.m 0 1
+mybenchmarks/bestResponse/randMatrixBestResponse_new.m mybenchmarks/bestResponse/randMatrixBestResponse_parfor.m 1 1
+
+mybenchmarks/micro1/micro1_new.m mybenchmarks/micro1/micro1_vector.m 0 2
+mybenchmarks/micro1/micro1_new.m mybenchmarks/micro1/micro1_parfor.m 1 2
+
+
+mybenchmarks/micro2/micro2_new.m mybenchmarks/micro2/micro2_vector.m 0 3
+mybenchmarks/micro2/micro2_new.m mybenchmarks/micro2/micro2_parfor.m 1 3

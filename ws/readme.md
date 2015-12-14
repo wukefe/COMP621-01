@@ -23,6 +23,10 @@ Not supported list (builtin)
 - `strcat`
 - `reshape`
 
+### bestresponse
+
+
+
 ### md (~~cannot go through~~)
 
 Not supported primitive
@@ -36,7 +40,6 @@ Not supported primitives
 - `textread`
 - [repmat](http://www.mathworks.com/help/matlab/ref/repmat.html): repeat copies of array
 - [ode113](http://www.mathworks.com/help/matlab/ref/ode113.html): solve nonstiff differential equations
-- seems Tamer cannot handle nested functions
 
 Changes
 
@@ -95,6 +98,20 @@ Not supported primitives
 
 - [downsample](http://www.mathworks.com/help/signal/ref/downsample.html): decrease sampling rate by integer factor
 - [imfilter](http://www.mathworks.com/help/images/ref/imfilter.html): N-D filtering of multidimensional images
+
+### kmeans (~~cannot go through~~)
+
+Not supported primitives
+
+- [spdiags](http://www.mathworks.com/help/matlab/ref/spdiags.html): extract and create sparse band and diagonal matrices
+- [bsxfun](http://www.mathworks.com/help/matlab/ref/bsxfun.html): apply element-by-element binary operation to two arrays with singleton expansion enabled
+
+### CLLL (~~cannot go through~~)
+
+Note: *COMPLEX* is not supported.
+Input type: [BuiltinMatlabClass](https://github.com/Sable/mclab-core/blob/50d7a655adfc62d963905792e490b73cffa69de3/languages/Natlab/src/natlab/tame/classes/BuiltinMatlabClass.java)
+
+Error: `UnsupportedOperationException` in (ShapePropagator.java:49)
 
 ## Implementation Questions
 

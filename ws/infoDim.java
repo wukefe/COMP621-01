@@ -1,17 +1,10 @@
-import java.awt.Dimension;
-
-import org.antlr.runtime.tree.RewriteRuleElementStream;
-
-import ast.ASTNode;
 import ast.Expr;
 import ast.IntLiteralExpr;
 import ast.Name;
 import ast.NameExpr;
 import ast.Opt;
 import ast.RangeExpr;
-import matlab.MatlabParser.row_list_return;
 import natlab.DecIntNumericLiteralValue;
-import sun.security.x509.DeltaCRLIndicatorExtension;
 
 /*
  * infoDim

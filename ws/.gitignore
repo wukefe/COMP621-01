@@ -1,12 +1,2 @@
-/codeCover.class
-/autoVector.class
-/shapeVector.class
-/infoDim.class
-/methodVector.class
-/autoFunction.class
-/autoTrim.class
-/infoAssignment.class
-/autoDUChain.class
-/autoUDChain.class
-/reachingDfs.class
-/processInput.class
+/*.class
+/mybenchmarks/nqueens/

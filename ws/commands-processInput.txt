@@ -1,0 +1,3 @@
+
+
+java -cp . processInput nqueen_cpu.m nqueen_solver.m nqueen_solver1.m SafeShift.m bit_scan.m -ID:\year\2015Summer\Ostrich\branch-and-bound\nqueens\matlab\ -O./mybenchmarks/nqueens/
