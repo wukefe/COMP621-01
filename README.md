@@ -22,9 +22,15 @@ There are two ways.
   + Find command lines in [commands.txt](ws/commands.txt)
   + Put each command into |Run Configurations| -> |Arguments| as arguments
 - Command lines:
-  + Going to test on Ubuntu
+  + Tested on Ubuntu
+  + Commands:
+    1. mkdir project && cd project && move hanfeng-project01.zip project/
+    2. unzip hanfeng-project01.zip
+    3. make
+  + The vectorized code can be found under each benchmark folder
+    - e.g. BlackScholes:  mybenchmark/blackscholes/
 
-After code is generated in the folder mybenchmark, it is better to read the `ReadMe.md` file to understand the usage of each benchamrk.
+After code is generated in the folder `mybenchmark`, it is better to read the `ReadMe.md` file to understand the usage of each benchamrk.
 
 If you find any problem about the experiments, please send me email directly.
 
